@@ -136,6 +136,13 @@ THREE.VRControls = function ( object, onError ) {
 
 			object.position.multiplyScalar( scope.scale );
 
+      if (frameData.planes) {
+        if (!object.planes) {
+          object.planes = new Float32Array(frameData.planes.length);
+        }
+        object.planes.set(frameData.planes);
+      }
+
 		}
 
 	};

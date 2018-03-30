@@ -316,6 +316,7 @@ var files = {
 	],
 	"webvr": [
 		"webvr_cubes",
+		"webvr_planes",
 		"webvr_daydream",
 		"webvr_gearvr",
 		"webvr_panorama",
