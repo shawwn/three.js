@@ -27,6 +27,8 @@ function WebVRManager( renderer ) {
 
 	}
 
+  this.frameData = frameData;
+
 	var matrixWorldInverse = new Matrix4();
 	var tempQuaternion = new Quaternion();
 	var tempPosition = new Vector3();

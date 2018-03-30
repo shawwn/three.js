@@ -408,7 +408,7 @@
 				break;
 			default:
 				console.warn( 'THREE.FBXLoader: unknown material type "%s". Defaulting to MeshPhongMaterial.', type );
-				material = new THREE.MeshPhongMaterial( { color: 0x3300ff } );
+				material = new THREE.MeshPhongMaterial( { color: 0xFFFFFF } );
 				break;
 
 		}
@@ -499,14 +499,17 @@
 			switch ( type ) {
 
 				case 'Bump':
+        case '3dsMax|maps|texmap_bump':
 					parameters.bumpMap = textureMap.get( child.ID );
 					break;
 
 				case 'DiffuseColor':
+        case '3dsMax|maps|texmap_diffuse':
 					parameters.map = getTexture( FBXTree, textureMap, child.ID, connections );
 					break;
 
 				case 'DisplacementColor':
+        case '3dsMax|maps|texmap_displacement':
 					parameters.displacementMap = getTexture( FBXTree, textureMap, child.ID, connections );
 					break;
 
@@ -520,11 +523,13 @@
 					break;
 
 				case 'ReflectionColor':
+        case '3dsMax|maps|texmap_reflection':
 					parameters.envMap = getTexture( FBXTree, textureMap, child.ID, connections );
 					parameters.envMap.mapping = THREE.EquirectangularReflectionMapping;
 					break;
 
 				case 'SpecularColor':
+        case '3dsMax|maps|texmap_self_illumination':
 					parameters.specularMap = getTexture( FBXTree, textureMap, child.ID, connections );
 					break;
 
