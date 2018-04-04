@@ -574,7 +574,7 @@
           }
         }
 
-        /* // update terrain
+        // update terrain
         const device = renderer.vr.getDevice()
         if (device && device.mesh) {
           const [positions, normals, indices] = device.mesh;
@@ -591,7 +591,7 @@
             // console.log('update indices', indices.length, indices.slice(0, 3), indices instanceof Uint32Array);
             terrainMesh.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
           }
-        } */
+        }
 
         /* // depth buffer
         if (device && device.isPresenting) {
