@@ -201,7 +201,11 @@
               void main() {
                 float originalZ = gl_FragCoord.z / gl_FragCoord.w;
                 float factor = max((10.0 - originalZ) / 10.0, 0.1);
-                gl_FragColor.rgba = vec4(vec3(factor), 1.0);
+                if (factor > 0.9) {
+                  gl_FragColor.rgba = vec4(1.0, 0.0, 0.0, 1.0);
+                } else {
+                  gl_FragColor.rgba = vec4(vec3(factor), 1.0);
+                }
               }
             `,
           });
