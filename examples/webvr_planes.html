@@ -24,6 +24,7 @@
 		<script src="../build/three.js"></script>
 		<script src="js/vr/WebVR.js"></script>
     <script src="https://cdn.rawgit.com/imaya/zlib.js/develop/bin/inflate.min.js"></script>
+    <script src="js/BufferGeometryUtils.js"></script>
     <script src="js/loaders/FBXLoader.js"></script>
 
 		<script>
@@ -166,18 +167,39 @@
 
         console.log('load 1');
 
-        const laserLength = 2;
-        const laserGeometry = new THREE.BoxBufferGeometry(0.02, laserLength, 0.02);
+        const laserLength = 1;
+        const laserHeight = 0.8;
+        const laserLooseness = 0.2;
+        const laserWidth = 0.02;
+        const laserGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
+          new THREE.BoxBufferGeometry(laserWidth, laserLength, laserWidth)
+            .applyMatrix(
+              new THREE.Matrix4()
+                .compose(
+                  new THREE.Vector3(0, 0, laserLength/2),
+                  new THREE.Quaternion().setFromUnitVectors(
+                    new THREE.Vector3(0, 1, 0),
+                    new THREE.Vector3(0, 0, 1)
+                  ),
+                  new THREE.Vector3(1, 1, 1)
+                )
+            ),
+          new THREE.BoxBufferGeometry(laserWidth, laserHeight - laserLooseness, laserWidth)
+            .applyMatrix(
+              new THREE.Matrix4()
+                .compose(
+                  new THREE.Vector3(0, -(laserHeight-laserLooseness)/2, laserLength),
+                  new THREE.Quaternion(),
+                  new THREE.Vector3(1, 1, 1)
+                )
+            ),
+        ]);
         const _makeLaserMesh = () => {
           const material = new THREE.MeshBasicMaterial({
             color: 0xFF0000,
           });
           const mesh = new THREE.Mesh(laserGeometry, material);
-          mesh.position.z = laserLength/2;
-          mesh.quaternion.setFromUnitVectors(
-            new THREE.Vector3(0, 1, 0),
-            new THREE.Vector3(0, 0, 1)
-          );
+          mesh.frustumCulled = false;
           return mesh;
         };
 
@@ -199,7 +221,7 @@
             object.position.set(-0.5, -0.5, -2);
             object.add(mesh);
             const laserMesh = _makeLaserMesh();
-            laserMesh.position.y = 0.8;
+            laserMesh.position.y = laserHeight;
             object.add(laserMesh);
             scene.add( object );
 
@@ -231,7 +253,7 @@
             object.position.set(0.5, -0.5, -2);
             object.add(mesh);
             const laserMesh = _makeLaserMesh();
-            laserMesh.position.y = 0.8;
+            laserMesh.position.y = laserHeight;
             object.add(laserMesh);
             scene.add( object );
 
