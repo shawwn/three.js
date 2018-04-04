@@ -37,8 +37,8 @@
 			var room;
 			var isMouseDown = false;
 
-			var INTERSECTED;
-			var crosshair;      
+			// var INTERSECTED;
+			// var crosshair;
 
       const controllerMeshes = Array(2);
       const planeEntrySize = 3 + 4 + 2 + 1;
@@ -58,10 +58,10 @@
           .applyMatrix(
             new THREE.Matrix4()
               .compose(
-                new THREE.Vector3(0, 0, laserLength/2),
+                new THREE.Vector3(0, 0, -laserLength/2),
                 new THREE.Quaternion().setFromUnitVectors(
                   new THREE.Vector3(0, 1, 0),
-                  new THREE.Vector3(0, 0, 1)
+                  new THREE.Vector3(0, 0, -1)
                 ),
                 new THREE.Vector3(1, 1, 1)
               )
@@ -70,13 +70,17 @@
           .applyMatrix(
             new THREE.Matrix4()
               .compose(
-                new THREE.Vector3(0, -(laserHeight-laserLooseness)/2, laserLength),
+                new THREE.Vector3(0, -(laserHeight-laserLooseness)/2, -laserLength),
                 new THREE.Quaternion(),
                 new THREE.Vector3(1, 1, 1)
               )
           ),
       ]);
-      const screenGeometry = new THREE.PlaneBufferGeometry(0.1, 0.1);
+      const screenGeometry = new THREE.PlaneBufferGeometry(1, 1);
+      const screenBackMaterial = new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        side: THREE.BackSide,
+      });
 
 			init();
 			animate();
@@ -102,7 +106,7 @@
         camera.lookAt(new THREE.Vector3(0, 0, 0));
 				scene.add( camera );
 
-				crosshair = new THREE.Mesh(
+				/* crosshair = new THREE.Mesh(
 					new THREE.RingGeometry( 0.02, 0.04, 32 ),
 					new THREE.MeshBasicMaterial( {
 						color: 0xffffff,
@@ -111,7 +115,7 @@
 					} )
 				);
 				crosshair.position.z = - 2;
-				camera.add( crosshair );
+				camera.add( crosshair ); */
 
 				/* room = new THREE.Mesh(
 					new THREE.BoxGeometry( 6, 6, 6, 8, 8, 8 ),
@@ -121,11 +125,14 @@
 				room.position.y = 3;
 				scene.add( room );
 
-				scene.add( new THREE.HemisphereLight( 0x606060, 0x404040 ) );
-
-				var light = new THREE.DirectionalLight( 0xffffff );
-				light.position.set( 1, 1, 1 ).normalize();
-				scene.add( light );
+        const _addLights = scene => {
+          scene.add( new THREE.HemisphereLight( 0x606060, 0x404040 ) );
+          const light = new THREE.DirectionalLight( 0xffffff );
+          light.position.set( 1, 1, 1 ).normalize();
+          scene.add( light );
+        };
+        _addLights(scene);
+        _addLights(robotScene);
 
         /* const planeGeometry = new THREE.PlaneBufferGeometry(1, 1);
         for (let i = 0; i < planes.length; i++) {
@@ -195,7 +202,7 @@
           mesh.frustumCulled = false;
           return mesh;
         })();
-        scene.add(terrainMesh);
+        robotScene.add(terrainMesh);
 
         console.log('load 1');
 
@@ -208,19 +215,54 @@
           mesh.frustumCulled = false;
           return mesh;
         };
-        const makeRobotRenderTarget = () => new THREE.WebGLRenderTarget(256, 256, {
+        const makeRobotRenderTarget = () => new THREE.WebGLRenderTarget(512, 512, {
           minFilter: THREE.NearestFilter,
           magFilter: THREE.NearestFilter,
-          format: THREE.RGBAFormat,
+          format: THREE.RGBFormat,
         });
         const _makeRobotScreen = texture => {
-          const geometry = screenGeometry;
-          const material = new THREE.MeshBasicMaterial({
-            map: texture,
+          const object = new THREE.Object3D();
+          const frontMesh = (() => {
+            const geometry = screenGeometry;
+            const material = new THREE.MeshBasicMaterial({
+              map: texture,
+              transparent: true,
+            });
+            return new THREE.Mesh(geometry, material);
+          })();
+          object.add(frontMesh);
+          const backMesh = (() => {
+            const geometry = screenGeometry;
+            const material = screenBackMaterial;
+            return new THREE.Mesh(geometry, material);
+          })();
+          object.add(backMesh);
+          return object;
+        };
+        const _setRobotCamera = (object, i) => {
+          const robotRenderTarget = makeRobotRenderTarget();
+          const robotCamera = new THREE.PerspectiveCamera();
+          robotScene.add(robotCamera);
+
+          const robotScreen = _makeRobotScreen(robotRenderTarget.texture);
+          robotScreen.position.set(i === 0 ? -1 : 1, 0.5, -1);
+          scene.add(robotScreen);
+
+          updates.push(() => {
+            robotCamera.position.copy(object.position);
+            robotCamera.position.y += laserHeight;
+            robotCamera.quaternion.copy(object.quaternion);
+            robotCamera.scale.copy(object.scale);
+            robotCamera.updateMatrixWorld();
+
+            renderer.vr.enabled = false;
+            renderer.setClearColor(0xFFFFFF);
+            renderer.setClearAlpha(1);
+            renderer.render(robotScene, robotCamera, robotRenderTarget);
+            renderer.setRenderTarget(null);
+            renderer.setClearAlpha(0);
+            renderer.vr.enabled = true;
           });
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.frustumCulled = false;
-          return mesh;
         };
 
         new THREE.FBXLoader()
@@ -232,10 +274,9 @@
             const modelScale = Math.max(boxSize.x, boxSize.y, boxSize.z);
 
             const modelFactor = 1/modelScale;
-            // mesh.position.y = boxSize.y/2 * modelFactor;
             mesh.quaternion.setFromUnitVectors(
               new THREE.Vector3(-1, 0, 0),
-              new THREE.Vector3(0, 0, 1)
+              new THREE.Vector3(0, 0, -1)
             );
             mesh.scale.multiplyScalar(modelFactor);
 
@@ -251,33 +292,11 @@
             object.name = 'bb8';
             object.task = null;
 
-            /* // robot camera
-            const robotRenderTarget = makeRobotRenderTarget();
-            const robotCamera = new THREE.PerspectiveCamera();
-            robotScene.add(robotCamera);
-
-            const robotScreen = _makeRobotScreen(robotRenderTarget.texture);
-            scene.add(robotScreen);
-
-            updates.push(() => {
-              robotCamera.position.copy(object.position);
-              robotCamera.quaternion.copy(object.quaternion);
-              robotCamera.scale.copy(object.scale);
-
-              robotScreen.position.copy(camera.position)
-                .add(
-                  new THREE.Vector3(0, 0, -1)
-                    .applyQuaternion(camera.quaternion)
-                );
-              robotScreen.quaternion.copy(camera.quaternion);
-              robotScreen.scale.copy(camera.scale);
-
-              renderer.render(robotScene, robotCamera, robotRenderTarget);
-            }); */
+            _setRobotCamera(object, 0);
 
             bb8 = object;
 
-            window.bb8 = bb8;
+            // window.bb8 = bb8;
           });
         new THREE.FBXLoader()
           .load('r2d2/r2-d2.fbx', mesh => {
@@ -297,6 +316,10 @@
             const boxSize = box.getSize(new THREE.Vector3());
             const modelScale = Math.max(boxSize.x, boxSize.y, boxSize.z);
             const modelFactor = 1/modelScale;
+            mesh.quaternion.setFromUnitVectors(
+              new THREE.Vector3(0, 0, 1),
+              new THREE.Vector3(0, 0, -1)
+            );
             mesh.scale.multiplyScalar(modelFactor);
 
             const object = new THREE.Object3D();
@@ -311,9 +334,11 @@
             object.name = 'r2d2';
             object.task = null;
 
+            _setRobotCamera(object, 1);
+
             r2d2 = object;
 
-            window.r2d2 = r2d2;
+            // window.r2d2 = r2d2;
           });
 
         const _makeJailMesh = () => {
@@ -344,8 +369,8 @@
           const mesh = new THREE.Mesh(geometry, material);
           return mesh;
         };
-        jailMesh = _makeJailMesh();
-        scene.add(jailMesh);
+        // jailMesh = _makeJailMesh();
+        // scene.add(jailMesh);
         robotJailMesh = _makeJailMesh();
         robotScene.add(robotJailMesh);
 
@@ -430,8 +455,8 @@
 
 			function onWindowResize() {
 
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
+				// camera.aspect = window.innerWidth / window.innerHeight;
+				// camera.updateProjectionMatrix();
 
 				renderer.setSize( window.innerWidth, window.innerHeight );
 
@@ -446,86 +471,6 @@
 			}
 
 			function render() {
-
-				var delta = clock.getDelta() * 60;
-
-				/* if ( isMouseDown === true ) {
-
-					var cube = room.children[ 0 ];
-					room.remove( cube );
-
-					cube.position.set( 0, 0, - 0.75 );
-					cube.position.applyQuaternion( camera.quaternion );
-					cube.userData.velocity.x = ( Math.random() - 0.5 ) * 0.02 * delta;
-					cube.userData.velocity.y = ( Math.random() - 0.5 ) * 0.02 * delta;
-					cube.userData.velocity.z = ( Math.random() * 0.01 - 0.05 ) * delta;
-					cube.userData.velocity.applyQuaternion( camera.quaternion );
-					room.add( cube );
-
-				} */
-
-				// find intersections
-
-				raycaster.setFromCamera( { x: 0, y: 0 }, camera );
-
-				var intersects = raycaster.intersectObjects( room.children );
-
-				if ( intersects.length > 0 ) {
-
-					if ( INTERSECTED != intersects[ 0 ].object ) {
-
-						if ( INTERSECTED ) INTERSECTED.material.emissive.setHex( INTERSECTED.currentHex );
-
-						INTERSECTED = intersects[ 0 ].object;
-						INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
-						INTERSECTED.material.emissive.setHex( 0xff0000 );
-
-					}
-
-				} else {
-
-					if ( INTERSECTED ) INTERSECTED.material.emissive.setHex( INTERSECTED.currentHex );
-
-					INTERSECTED = undefined;
-
-				}
-
-				// Keep cubes inside room
-
-				for ( var i = 0; i < room.children.length; i ++ ) {
-
-					var cube = room.children[ i ];
-
-					cube.userData.velocity.multiplyScalar( 1 - ( 0.001 * delta ) );
-
-					cube.position.add( cube.userData.velocity );
-
-					if ( cube.position.x < - 3 || cube.position.x > 3 ) {
-
-						cube.position.x = THREE.Math.clamp( cube.position.x, - 3, 3 );
-						cube.userData.velocity.x = - cube.userData.velocity.x;
-
-					}
-
-					if ( cube.position.y < - 3 || cube.position.y > 3 ) {
-
-						cube.position.y = THREE.Math.clamp( cube.position.y, - 3, 3 );
-						cube.userData.velocity.y = - cube.userData.velocity.y;
-
-					}
-
-					if ( cube.position.z < - 3 || cube.position.z > 3 ) {
-
-						cube.position.z = THREE.Math.clamp( cube.position.z, - 3, 3 );
-						cube.userData.velocity.z = - cube.userData.velocity.z;
-
-					}
-
-					cube.rotation.x += cube.userData.velocity.x * 2 * delta;
-					cube.rotation.y += cube.userData.velocity.y * 2 * delta;
-					cube.rotation.z += cube.userData.velocity.z * 2 * delta;
-
-				}
 
         const _animateRobot = robot => {
           // remove outdated task
@@ -547,9 +492,10 @@
               );
               raycaster.near = 0;
               raycaster.far = laserLength;
-              const raycastResult = raycaster.intersectObjects([
+              /* const raycastResult = raycaster.intersectObjects([
                 jailMesh,
-              ], true);
+              ], true); */
+              const raycastResult = [];
 
               if (raycastResult.length === 0) {
                 const startPosition = robot.position.clone();
@@ -557,7 +503,7 @@
                 const startRotation = robot.quaternion.clone();
                 const endRotation = new THREE.Quaternion()
                   .setFromUnitVectors(
-                    new THREE.Vector3(0, 0, 1),
+                    new THREE.Vector3(0, 0, -1),
                     endPosition.clone()
                       .sub(startPosition)
                       .normalize()
