@@ -45,6 +45,7 @@
       let terrainMesh = null;
       let task = null;
       let bb8 = null;
+      let r2d2 = null;
 
 			init();
 			animate();
@@ -59,7 +60,7 @@
 				info.style.top = '10px';
 				info.style.width = '100%';
 				info.style.textAlign = 'center';
-				info.innerHTML = '<a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> webgl - interactive cubes';
+				// info.innerHTML = '<a href="http://threejs.org" target="_blank" rel="noopener">three.js</a> webgl - interactive cubes';
 				container.appendChild( info );
 
 				scene = new THREE.Scene();
@@ -165,29 +166,79 @@
 
         console.log('load 1');
 
-        var loader = new THREE.FBXLoader();
-				loader.load('bb8/bb8.FBX', function (object) {
-          const box = new THREE.Box3();
-          box.setFromObject(object);
-
-          const boxSize = box.getSize(new THREE.Vector3());
-          const modelScale = Math.max(boxSize.x, boxSize.y, boxSize.z);
-
-          object.scale.multiplyScalar(1/modelScale);
-
-          object.position.set(0, 0, -1.5);
-          /* object.quaternion.setFromUnitVectors(
+        const laserLength = 2;
+        const laserGeometry = new THREE.BoxBufferGeometry(0.02, laserLength, 0.02);
+        const _makeLaserMesh = () => {
+          const material = new THREE.MeshBasicMaterial({
+            color: 0xFF0000,
+          });
+          const mesh = new THREE.Mesh(laserGeometry, material);
+          mesh.position.z = laserLength/2;
+          mesh.quaternion.setFromUnitVectors(
             new THREE.Vector3(0, 1, 0),
-            new THREE.Vector3(1, 2, -1).normalize()
-          ); */
-          object.matrixWorldNeedsUpdate = true;
+            new THREE.Vector3(0, 0, 1)
+          );
+          return mesh;
+        };
 
-          scene.add( object );
+        new THREE.FBXLoader()
+          .load('bb8/bb8.FBX', mesh => {
+            const box = new THREE.Box3();
+            box.setFromObject(mesh);
 
-          bb8 = object;
+            const boxSize = box.getSize(new THREE.Vector3());
+            const modelScale = Math.max(boxSize.x, boxSize.y, boxSize.z);
 
-          window.bb8 = bb8;
-        });
+            mesh.quaternion.setFromUnitVectors(
+              new THREE.Vector3(-1, 0, 0),
+              new THREE.Vector3(0, 0, 1)
+            );
+            mesh.scale.multiplyScalar(1/modelScale);
+
+            const object = new THREE.Object3D();
+            object.position.set(-0.5, -0.5, -2);
+            object.add(mesh);
+            const laserMesh = _makeLaserMesh();
+            laserMesh.position.y = 0.8;
+            object.add(laserMesh);
+            scene.add( object );
+
+            bb8 = object;
+
+            window.bb8 = bb8;
+          });
+        new THREE.FBXLoader()
+          .load('r2d2/r2-d2.fbx', mesh => {
+            const removes = [];
+            mesh.traverse(o => {
+              if (o instanceof THREE.AmbientLight || o instanceof THREE.DirectionalLight) {
+                removes.push([o.parent, o]);
+              }
+            });
+            removes.forEach(remove => {
+              remove[0].remove(remove[1]);
+            });
+
+            const box = new THREE.Box3();
+            box.setFromObject(mesh);
+
+            const boxSize = box.getSize(new THREE.Vector3());
+            const modelScale = Math.max(boxSize.x, boxSize.y, boxSize.z);
+
+            mesh.scale.multiplyScalar(1/modelScale);
+
+            const object = new THREE.Object3D();
+            object.position.set(0.5, -0.5, -2);
+            object.add(mesh);
+            const laserMesh = _makeLaserMesh();
+            laserMesh.position.y = 0.8;
+            object.add(laserMesh);
+            scene.add( object );
+
+            r2d2 = object;
+
+            window.r2d2 = r2d2;
+          });
 
 				var geometry = new THREE.BoxGeometry( 0.15, 0.15, 0.15 );
 
@@ -447,6 +498,11 @@
             // console.log('update indices', indices.length, indices.slice(0, 3), indices instanceof Uint32Array);
             terrainMesh.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
           }
+        }
+
+        // depth buffer
+        if (device && device.isPresenting) {
+          renderer.autoClearDepth = false;
         }
 
 				renderer.render( scene, camera );
