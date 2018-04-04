@@ -32,7 +32,7 @@
 			var clock = new THREE.Clock();
 
 			var container;
-			var camera, scene, raycaster, renderer;
+			var camera, scene, robotScene, raycaster, renderer;
 
 			var room;
 			var isMouseDown = false;
@@ -47,6 +47,8 @@
       let bb8 = null;
       let r2d2 = null;
       let jailMesh = null;
+      let robotJailMesh = null;
+      const updates = [];
       const laserLength = 1;
       const laserHeight = 0.8;
       const laserLooseness = 0.2;
@@ -74,6 +76,7 @@
               )
           ),
       ]);
+      const screenGeometry = new THREE.PlaneBufferGeometry(0.1, 0.1);
 
 			init();
 			animate();
@@ -92,7 +95,7 @@
 				container.appendChild( info );
 
 				scene = new THREE.Scene();
-				// scene.background = new THREE.Color( 0x505050 );
+				robotScene = new THREE.Scene();
 
 				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 10 );
         camera.position.set(0, 2, 5);
@@ -197,10 +200,25 @@
         console.log('load 1');
 
         const _makeLaserMesh = () => {
+          const geometry = laserGeometry;
           const material = new THREE.MeshBasicMaterial({
             color: 0xFF0000,
           });
-          const mesh = new THREE.Mesh(laserGeometry, material);
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.frustumCulled = false;
+          return mesh;
+        };
+        const makeRobotRenderTarget = () => new THREE.WebGLRenderTarget(256, 256, {
+          minFilter: THREE.NearestFilter,
+          magFilter: THREE.NearestFilter,
+          format: THREE.RGBAFormat,
+        });
+        const _makeRobotScreen = texture => {
+          const geometry = screenGeometry;
+          const material = new THREE.MeshBasicMaterial({
+            map: texture,
+          });
+          const mesh = new THREE.Mesh(geometry, material);
           mesh.frustumCulled = false;
           return mesh;
         };
@@ -227,10 +245,35 @@
             const laserMesh = _makeLaserMesh();
             laserMesh.position.y = laserHeight;
             object.add(laserMesh);
+
             scene.add( object );
 
             object.name = 'bb8';
             object.task = null;
+
+            /* // robot camera
+            const robotRenderTarget = makeRobotRenderTarget();
+            const robotCamera = new THREE.PerspectiveCamera();
+            robotScene.add(robotCamera);
+
+            const robotScreen = _makeRobotScreen(robotRenderTarget.texture);
+            scene.add(robotScreen);
+
+            updates.push(() => {
+              robotCamera.position.copy(object.position);
+              robotCamera.quaternion.copy(object.quaternion);
+              robotCamera.scale.copy(object.scale);
+
+              robotScreen.position.copy(camera.position)
+                .add(
+                  new THREE.Vector3(0, 0, -1)
+                    .applyQuaternion(camera.quaternion)
+                );
+              robotScreen.quaternion.copy(camera.quaternion);
+              robotScreen.scale.copy(camera.scale);
+
+              renderer.render(robotScene, robotCamera, robotRenderTarget);
+            }); */
 
             bb8 = object;
 
@@ -273,7 +316,7 @@
             window.r2d2 = r2d2;
           });
 
-        jailMesh = (() => {
+        const _makeJailMesh = () => {
           const roomSize = 8;
           const geometry = new THREE.BoxBufferGeometry(roomSize, roomSize, roomSize * 1.2)
             .applyMatrix(
@@ -291,7 +334,7 @@
             indices[baseIndex + 1] = indices[baseIndex + 2];
             indices[baseIndex + 2] = temp;
           }
-          indexAttribute.needsUpdate = true;
+          // indexAttribute.needsUpdate = true;
           const material = new THREE.MeshBasicMaterial({
             color: 0x808080,
             opacity: 0.0025,
@@ -300,8 +343,11 @@
           });
           const mesh = new THREE.Mesh(geometry, material);
           return mesh;
-        })();
+        };
+        jailMesh = _makeJailMesh();
         scene.add(jailMesh);
+        robotJailMesh = _makeJailMesh();
+        robotScene.add(robotJailMesh);
 
 				var geometry = new THREE.BoxGeometry( 0.15, 0.15, 0.15 );
 
@@ -597,6 +643,10 @@
         if (device && device.isPresenting) {
           renderer.autoClearDepth = false;
         } */
+
+        for (let i = 0; i < updates.length; i++) {
+          updates[i]();
+        }
 
 				renderer.render( scene, camera );
 
