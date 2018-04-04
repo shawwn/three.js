@@ -46,8 +46,8 @@
       let terrainMesh = null;
       let bb8 = null;
       let r2d2 = null;
-      let jailMesh = null;
-      let robotJailMesh = null;
+      // let jailMesh = null;
+      // let robotJailMesh = null;
       const updates = [];
       const laserLength = 1;
       const laserHeight = 0.8;
@@ -78,7 +78,7 @@
       ]);
       const screenGeometry = new THREE.PlaneBufferGeometry(1, 1);
       const screenBackMaterial = new THREE.MeshBasicMaterial({
-        color: 0x000000,
+        color: 0x808080,
         side: THREE.BackSide,
       });
 
@@ -188,17 +188,24 @@
           ]);
           geometry.setIndex(new THREE.BufferAttribute(indices, 1));
 
-          const material = new THREE.MeshPhongMaterial({
-            color: 0x808080,
-            transparent: true,
-            opacity: 0.1,
-            flatShading: true,
-            // side: THREE.DoubleSide,
-            // depthWrite: false,
-            // depthTest: false,
+          const material = new THREE.ShaderMaterial({
+            uniforms: {},
+            vertexShader: `\
+              void main() {
+                vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+                vec4 position = projectionMatrix * mvPosition;
+                gl_Position = position;
+              }
+            `,
+            fragmentShader: `\
+              void main() {
+                float originalZ = gl_FragCoord.z / gl_FragCoord.w;
+                float factor = max((10.0 - originalZ) / 10.0, 0.1);
+                gl_FragColor.rgba = vec4(vec3(factor), 1.0);
+              }
+            `,
           });
           const mesh = new THREE.Mesh(geometry, material);
-          // mesh.drawMode = THREE.TriangleStripDrawMode;
           mesh.frustumCulled = false;
           return mesh;
         })();
@@ -226,7 +233,7 @@
             const geometry = screenGeometry;
             const material = new THREE.MeshBasicMaterial({
               map: texture,
-              transparent: true,
+              // transparent: true,
             });
             return new THREE.Mesh(geometry, material);
           })();
@@ -242,6 +249,9 @@
         const _setRobotCamera = (object, i) => {
           const robotRenderTarget = makeRobotRenderTarget();
           const robotCamera = new THREE.PerspectiveCamera();
+          robotCamera.near = 0.01;
+          robotCamera.far = 10;
+          robotCamera.updateProjectionMatrix();
           robotScene.add(robotCamera);
 
           const robotScreen = _makeRobotScreen(robotRenderTarget.texture);
@@ -256,11 +266,10 @@
             robotCamera.updateMatrixWorld();
 
             renderer.vr.enabled = false;
-            renderer.setClearColor(0xFFFFFF);
-            renderer.setClearAlpha(1);
+            renderer.setClearColor(0x191919, 1); // 0xFFFFFF * 0.1
             renderer.render(robotScene, robotCamera, robotRenderTarget);
             renderer.setRenderTarget(null);
-            renderer.setClearAlpha(0);
+            renderer.setClearColor(0x000000, 0);
             renderer.vr.enabled = true;
           });
         };
@@ -362,8 +371,8 @@
           // indexAttribute.needsUpdate = true;
           const material = new THREE.MeshBasicMaterial({
             color: 0x808080,
-            opacity: 0.0025,
-            transparent: true,
+            // opacity: 0.0025,
+            // transparent: true,
             side: THREE.DoubleSide,
           });
           const mesh = new THREE.Mesh(geometry, material);
@@ -371,8 +380,8 @@
         };
         // jailMesh = _makeJailMesh();
         // scene.add(jailMesh);
-        robotJailMesh = _makeJailMesh();
-        robotScene.add(robotJailMesh);
+        // robotJailMesh = _makeJailMesh();
+        // robotScene.add(robotJailMesh);
 
 				var geometry = new THREE.BoxGeometry( 0.15, 0.15, 0.15 );
 
