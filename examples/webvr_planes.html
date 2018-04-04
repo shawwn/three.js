@@ -47,6 +47,33 @@
       let bb8 = null;
       let r2d2 = null;
       let jailMesh = null;
+      const laserLength = 1;
+      const laserHeight = 0.8;
+      const laserLooseness = 0.2;
+      const laserWidth = 0.02;
+      const laserGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
+        new THREE.BoxBufferGeometry(laserWidth, laserLength, laserWidth)
+          .applyMatrix(
+            new THREE.Matrix4()
+              .compose(
+                new THREE.Vector3(0, 0, laserLength/2),
+                new THREE.Quaternion().setFromUnitVectors(
+                  new THREE.Vector3(0, 1, 0),
+                  new THREE.Vector3(0, 0, 1)
+                ),
+                new THREE.Vector3(1, 1, 1)
+              )
+          ),
+        new THREE.BoxBufferGeometry(laserWidth, laserHeight - laserLooseness, laserWidth)
+          .applyMatrix(
+            new THREE.Matrix4()
+              .compose(
+                new THREE.Vector3(0, -(laserHeight-laserLooseness)/2, laserLength),
+                new THREE.Quaternion(),
+                new THREE.Vector3(1, 1, 1)
+              )
+          ),
+      ]);
 
 			init();
 			animate();
@@ -68,6 +95,8 @@
 				// scene.background = new THREE.Color( 0x505050 );
 
 				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 10 );
+        camera.position.set(0, 2, 5);
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
 				scene.add( camera );
 
 				crosshair = new THREE.Mesh(
@@ -167,33 +196,6 @@
 
         console.log('load 1');
 
-        const laserLength = 1;
-        const laserHeight = 0.8;
-        const laserLooseness = 0.2;
-        const laserWidth = 0.02;
-        const laserGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
-          new THREE.BoxBufferGeometry(laserWidth, laserLength, laserWidth)
-            .applyMatrix(
-              new THREE.Matrix4()
-                .compose(
-                  new THREE.Vector3(0, 0, laserLength/2),
-                  new THREE.Quaternion().setFromUnitVectors(
-                    new THREE.Vector3(0, 1, 0),
-                    new THREE.Vector3(0, 0, 1)
-                  ),
-                  new THREE.Vector3(1, 1, 1)
-                )
-            ),
-          new THREE.BoxBufferGeometry(laserWidth, laserHeight - laserLooseness, laserWidth)
-            .applyMatrix(
-              new THREE.Matrix4()
-                .compose(
-                  new THREE.Vector3(0, -(laserHeight-laserLooseness)/2, laserLength),
-                  new THREE.Quaternion(),
-                  new THREE.Vector3(1, 1, 1)
-                )
-            ),
-        ]);
         const _makeLaserMesh = () => {
           const material = new THREE.MeshBasicMaterial({
             color: 0xFF0000,
@@ -220,13 +222,15 @@
             mesh.scale.multiplyScalar(modelFactor);
 
             const object = new THREE.Object3D();
-            object.position.set(-0.5, 0, -2);
+            object.position.set(-0.5, 0, 0);
             object.add(mesh);
             const laserMesh = _makeLaserMesh();
             laserMesh.position.y = laserHeight;
             object.add(laserMesh);
-            object.task = null;
             scene.add( object );
+
+            object.name = 'bb8';
+            object.task = null;
 
             bb8 = object;
 
@@ -254,13 +258,15 @@
 
             const object = new THREE.Object3D();
             // mesh.position.y = boxSize.y/2 * modelFactor;
-            object.position.set(0.5, 0, -2);
+            object.position.set(0.5, 0, 0);
             object.add(mesh);
             const laserMesh = _makeLaserMesh();
             laserMesh.position.y = laserHeight;
             object.add(laserMesh);
-            object.task = null;
             scene.add( object );
+
+            object.name = 'r2d2';
+            object.task = null;
 
             r2d2 = object;
 
@@ -268,7 +274,7 @@
           });
 
         jailMesh = (() => {
-          const roomSize = 4;
+          const roomSize = 6;
           const geometry = new THREE.BoxBufferGeometry(roomSize, roomSize, roomSize)
             .applyMatrix(
               new THREE.Matrix4().compose(
@@ -277,11 +283,20 @@
                 new THREE.Vector3(1, 1, 1)
               )
             );
+          const indexAttribute = geometry.index;
+          const indices = indexAttribute.array
+          for (let i = 0; i < indices.length / 3; i++) {
+            const baseIndex = i * 3;
+            const temp = indices[baseIndex + 1];
+            indices[baseIndex + 1] = indices[baseIndex + 2];
+            indices[baseIndex + 2] = temp;
+          }
+          indexAttribute.needsUpdate = true;
           const material = new THREE.MeshPhongMaterial({
             color: 0x00FFFF,
             opacity: 0.3,
             transparent: true,
-            side: THREE.BackSide,
+            // side: THREE.BackSide,
           });
           const mesh = new THREE.Mesh(geometry, material);
           return mesh;
@@ -467,29 +482,61 @@
 				}
 
         const _animateRobot = robot => {
-          /* // remove outdated task
+          // remove outdated task
           const now = Date.now();
           if (robot.task && now > robot.task.end) {
             robot.task = null;
           }
           // add new plane
-          if (robot.task === null) {
-            if (renderer.vr.frameData && renderer.vr.frameData.numPlanes > 0) {
-              robot.task = {
-                start: now,
-                end: now + 1000,
-                startPosition: bb8.position.clone(),
-                endPosition: new THREE.Vector3().fromArray(nextPlaneArray),
-              };
+          if (!robot.task) {
+            for (;;) {
+              const directionVector = new THREE.Vector3(-0.5 + Math.random(), 0, -0.5 + Math.random())
+                .normalize();
+
+              raycaster.set(
+                robot.position.clone().add(
+                  new THREE.Vector3(0, laserHeight, 0)
+                ),
+                directionVector
+              );
+              raycaster.near = 0;
+              raycaster.far = laserLength;
+              const raycastResult = raycaster.intersectObjects([
+                jailMesh,
+              ], true);
+
+              if (raycastResult.length === 0) {
+                const startPosition = robot.position.clone();
+                const endPosition = startPosition.clone().add(directionVector);
+                const startRotation = robot.quaternion.clone();
+                const endRotation = new THREE.Quaternion()
+                  .setFromUnitVectors(
+                    new THREE.Vector3(0, 0, 1),
+                    endPosition.clone()
+                      .sub(startPosition)
+                      .normalize()
+                  );
+                robot.task = {
+                  start: now,
+                  end: now + (200 + Math.random() * 1300),
+                  startPosition,
+                  endPosition,
+                  startRotation,
+                  endRotation,
+                };
+                break;
+              }
             }
           }
           // animate
-          if (robot.task !== null) {
+          if (robot.task) {
             const timeFactor = (now - robot.task.start) / (robot.task.end - robot.task.start);
-            bb8.position.copy(robot.task.startPosition)
+            robot.position.copy(robot.task.startPosition)
               .lerp(robot.task.endPosition, timeFactor);
-            bb8.matrixWorldNeedsUpdate = true;
-          } */
+            robot.quaternion.copy(robot.task.startRotation)
+              .slerp(robot.task.endRotation, timeFactor);
+            robot.updateMatrixWorld();
+          }
         };
 
         // update robots
