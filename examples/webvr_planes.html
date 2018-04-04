@@ -274,8 +274,8 @@
           });
 
         jailMesh = (() => {
-          const roomSize = 6;
-          const geometry = new THREE.BoxBufferGeometry(roomSize, roomSize, roomSize)
+          const roomSize = 8;
+          const geometry = new THREE.BoxBufferGeometry(roomSize, roomSize, roomSize * 1.2)
             .applyMatrix(
               new THREE.Matrix4().compose(
                 new THREE.Vector3(0, roomSize/2, 0),
@@ -292,11 +292,11 @@
             indices[baseIndex + 2] = temp;
           }
           indexAttribute.needsUpdate = true;
-          const material = new THREE.MeshPhongMaterial({
-            color: 0x00FFFF,
-            opacity: 0.3,
+          const material = new THREE.MeshBasicMaterial({
+            color: 0x808080,
+            opacity: 0.0025,
             transparent: true,
-            // side: THREE.BackSide,
+            side: THREE.DoubleSide,
           });
           const mesh = new THREE.Mesh(geometry, material);
           return mesh;
