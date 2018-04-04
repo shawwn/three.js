@@ -44,9 +44,9 @@
       const planeEntrySize = 3 + 4 + 2 + 1;
       const planes = Array(32);
       let terrainMesh = null;
-      let task = null;
       let bb8 = null;
       let r2d2 = null;
+      let jailMesh = null;
 
 			init();
 			animate();
@@ -211,18 +211,21 @@
             const boxSize = box.getSize(new THREE.Vector3());
             const modelScale = Math.max(boxSize.x, boxSize.y, boxSize.z);
 
+            const modelFactor = 1/modelScale;
+            // mesh.position.y = boxSize.y/2 * modelFactor;
             mesh.quaternion.setFromUnitVectors(
               new THREE.Vector3(-1, 0, 0),
               new THREE.Vector3(0, 0, 1)
             );
-            mesh.scale.multiplyScalar(1/modelScale);
+            mesh.scale.multiplyScalar(modelFactor);
 
             const object = new THREE.Object3D();
-            object.position.set(-0.5, -0.5, -2);
+            object.position.set(-0.5, 0, -2);
             object.add(mesh);
             const laserMesh = _makeLaserMesh();
             laserMesh.position.y = laserHeight;
             object.add(laserMesh);
+            object.task = null;
             scene.add( object );
 
             bb8 = object;
@@ -246,21 +249,44 @@
 
             const boxSize = box.getSize(new THREE.Vector3());
             const modelScale = Math.max(boxSize.x, boxSize.y, boxSize.z);
-
-            mesh.scale.multiplyScalar(1/modelScale);
+            const modelFactor = 1/modelScale;
+            mesh.scale.multiplyScalar(modelFactor);
 
             const object = new THREE.Object3D();
-            object.position.set(0.5, -0.5, -2);
+            // mesh.position.y = boxSize.y/2 * modelFactor;
+            object.position.set(0.5, 0, -2);
             object.add(mesh);
             const laserMesh = _makeLaserMesh();
             laserMesh.position.y = laserHeight;
             object.add(laserMesh);
+            object.task = null;
             scene.add( object );
 
             r2d2 = object;
 
             window.r2d2 = r2d2;
           });
+
+        jailMesh = (() => {
+          const roomSize = 4;
+          const geometry = new THREE.BoxBufferGeometry(roomSize, roomSize, roomSize)
+            .applyMatrix(
+              new THREE.Matrix4().compose(
+                new THREE.Vector3(0, roomSize/2, 0),
+                new THREE.Quaternion(),
+                new THREE.Vector3(1, 1, 1)
+              )
+            );
+          const material = new THREE.MeshPhongMaterial({
+            color: 0x00FFFF,
+            opacity: 0.3,
+            transparent: true,
+            side: THREE.BackSide,
+          });
+          const mesh = new THREE.Mesh(geometry, material);
+          return mesh;
+        })();
+        scene.add(jailMesh);
 
 				var geometry = new THREE.BoxGeometry( 0.15, 0.15, 0.15 );
 
@@ -440,26 +466,16 @@
 
 				}
 
-        // update bb8
-        if (bb8) {
-          // remove outdated plane
+        const _animateRobot = robot => {
+          /* // remove outdated task
           const now = Date.now();
-          if (task && now > task.end) {
-            task = null;
+          if (robot.task && now > robot.task.end) {
+            robot.task = null;
           }
           // add new plane
-          if (task === null) {
+          if (robot.task === null) {
             if (renderer.vr.frameData && renderer.vr.frameData.numPlanes > 0) {
-              const planeArrays = (() => {
-                const result = [];
-                for (let i = 0; i < renderer.vr.frameData.numPlanes; i++) {
-                  result.push(renderer.vr.frameData.planes.slice(i*planeEntrySize, (i+1)*planeEntrySize));
-                }
-                return result;
-              })();
-              const index = Math.floor(Math.random() * planeArrays.length);
-              const nextPlaneArray = planeArrays[index];
-              task = {
+              robot.task = {
                 start: now,
                 end: now + 1000,
                 startPosition: bb8.position.clone(),
@@ -468,12 +484,20 @@
             }
           }
           // animate
-          if (task !== null) {
-            const timeFactor = (now - task.start) / (task.end - task.start);
-            bb8.position.copy(task.startPosition)
-              .lerp(task.endPosition, timeFactor);
+          if (robot.task !== null) {
+            const timeFactor = (now - robot.task.start) / (robot.task.end - robot.task.start);
+            bb8.position.copy(robot.task.startPosition)
+              .lerp(robot.task.endPosition, timeFactor);
             bb8.matrixWorldNeedsUpdate = true;
-          }
+          } */
+        };
+
+        // update robots
+        if (bb8) {
+          _animateRobot(bb8);
+        }
+        if (r2d2) {
+          _animateRobot(r2d2);
         }
 
         /* if (renderer.vr.frameData && renderer.vr.frameData.numPlanes > 0) {
@@ -503,7 +527,7 @@
           }
         }
 
-        // update terrain
+        /* // update terrain
         const device = renderer.vr.getDevice()
         if (device && device.mesh) {
           const [positions, normals, indices] = device.mesh;
@@ -520,12 +544,12 @@
             // console.log('update indices', indices.length, indices.slice(0, 3), indices instanceof Uint32Array);
             terrainMesh.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
           }
-        }
+        } */
 
-        // depth buffer
+        /* // depth buffer
         if (device && device.isPresenting) {
           renderer.autoClearDepth = false;
-        }
+        } */
 
 				renderer.render( scene, camera );
 
