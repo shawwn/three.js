@@ -47,13 +47,13 @@
       let bb8 = null;
       let r2d2 = null;
       // let jailMesh = null;
-      // let robotJailMesh = null;
+      let robotJailMesh = null;
       const updates = [];
       const laserLength = 1;
       const laserHeight = 0.8;
       const laserLooseness = 0.2;
       const laserWidth = 0.02;
-      const depthDangerFactor = 0.85;
+      const depthDangerFactor = 0.95;
       const laserGeometry = THREE.BufferGeometryUtils.mergeBufferGeometries([
         new THREE.BoxBufferGeometry(laserWidth, laserLength, laserWidth)
           .applyMatrix(
