@@ -43,6 +43,7 @@
       const planeEntrySize = 3 + 4 + 2 + 1;
       const planes = Array(32);
       let terrainMesh = null;
+      let robotTerrainMesh = null;
       let bb8 = null;
       let r2d2 = null;
       let robotJailMesh = null;
@@ -179,7 +180,7 @@
           controllerMeshes[i] = controllerMesh;
         }
 
-        terrainMesh = (() => {
+        const _makeTerrainMesh = () => {
           const geometry = new THREE.BufferGeometry();
 
           const positions = Float32Array.from([
@@ -203,10 +204,11 @@
           const mesh = new THREE.Mesh(geometry, material);
           mesh.frustumCulled = false;
           return mesh;
-        })();
-        robotScene.add(terrainMesh);
-
-        console.log('load 1');
+        };
+        terrainMesh = _makeTerrainMesh();
+        scene.add(terrainMesh);
+        robotTerrainMesh = _makeTerrainMesh();
+        robotScene.add(robotTerrainMesh);
 
         const _makeLaserMesh = () => {
           const geometry = laserGeometry;
@@ -617,7 +619,7 @@
         }
 
         // update terrain
-        const _loadMesh = ({positions, normals, indices}) => {
+        const _loadMesh = (terrainMesh, {positions, normals, indices}) => {
           let updated = false;
           if (positions && terrainMesh.geometry.attributes.position.array !== positions) {
             // console.log('update positions', positions.length);
@@ -641,7 +643,7 @@
           if (device.mesh && (device.mesh[0] || device.mesh[1] || device.mesh[2])) {
             const [positions, normals, indices] = device.mesh;
 
-            const updated = _loadMesh({positions, normals, indices});
+            const updated = _loadMesh(robotTerrainMesh, {positions, normals, indices});
             /* if (updated) {
               const roomMeshSize =
                 Uint32Array.BYTES_PER_ELEMENT + positions.byteLength +
@@ -711,7 +713,7 @@
                 const indices = new Uint32Array(arrayBuffer, bufferIndex, numIndices);
                 bufferIndex += indices.byteLength;
 
-                _loadMesh({positions, normals, indices});
+                _loadMesh(terrainMesh, {positions, normals, indices});
               })
               .catch(err => {
                 console.warn(err.stack);
