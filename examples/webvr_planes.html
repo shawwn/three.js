@@ -714,6 +714,7 @@
                 bufferIndex += indices.byteLength;
 
                 _loadMesh(terrainMesh, {positions, normals, indices});
+                _loadMesh(robotTerrainMesh, {positions, normals, indices});
               })
               .catch(err => {
                 console.warn(err.stack);
