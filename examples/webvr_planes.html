@@ -48,7 +48,9 @@
       let r2d2 = null;
       // let jailMesh = null;
       let robotJailMesh = null;
+      let lastRoomMeshSize = 0;
       const updates = [];
+
       const laserLength = 1;
       const laserHeight = 0.5;
       const laserWidth = 0.02;
@@ -618,21 +620,77 @@
         }
 
         // update terrain
-        const device = renderer.vr.getDevice()
+        const device = renderer.vr.getDevice();
         if (device && device.mesh) {
           const [positions, normals, indices] = device.mesh;
 
+          let updated = false;
           if (positions && terrainMesh.geometry.attributes.position.array !== positions) {
             // console.log('update positions', positions.length);
             terrainMesh.geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+            updated = true;
           }
           if (normals && terrainMesh.geometry.attributes.normal.array !== normals) {
             // console.log('update normals', normals.length, normals.slice(0, 9), normals instanceof Float32Array);
             terrainMesh.geometry.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
+            updated = true;
           }
           if (indices && terrainMesh.geometry.index.array !== indices) {
             // console.log('update indices', indices.length, indices.slice(0, 3), indices instanceof Uint32Array);
             terrainMesh.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+            updated = true;
+          }
+
+          if (typeof fs !== 'undefined' && updated) {
+            console.log('write mesh 1');
+
+            const roomMeshSize =
+              Uint32Array.BYTES_PER_ELEMENT + positions.byteLength +
+              Uint32Array.BYTES_PER_ELEMENT + normals.byteLength +
+              Uint32Array.BYTES_PER_ELEMENT + indices.byteLength;
+
+            if (roomMeshSize > lastRoomMeshSize) {
+              const buffer = new Buffer(roomMeshSize);
+              let bufferIndex = 0;
+
+              console.log('write mesh 2');
+
+              // positions
+              new Uint32Array(buffer.buffer, bufferIndex, Uint32Array.BYTES_PER_ELEMENT)
+                .set(Uint32Array.from(positions.length));
+              bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+              new Float32Array(buffer.buffer, bufferIndex, positions.length)
+                .set(positions);
+              bufferIndex += positions.length * Float32Array.BYTES_PER_ELEMENT;
+
+              console.log('write mesh 3');
+
+              // normals
+              new Uint32Array(buffer.buffer, bufferIndex, Uint32Array.BYTES_PER_ELEMENT)
+                .set(Uint32Array.from(normals.length));
+              bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+              new Float32Array(buffer.buffer, bufferIndex, normals.length)
+                .set(normals);
+              bufferIndex += normals.length * Float32Array.BYTES_PER_ELEMENT;
+
+              console.log('write mesh 4');
+
+              // indices
+              new Uint32Array(buffer.buffer, bufferIndex, Uint32Array.BYTES_PER_ELEMENT)
+                .set(Uint32Array.from(indices.length));
+              bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+              new Uint32Array(buffer.buffer, bufferIndex, indices.length)
+                .set(indices);
+              bufferIndex += indices.length * Uint32Array.BYTES_PER_ELEMENT;
+
+              console.log('write mesh 5');
+
+              fs.writeFileSync(path.join(process.cwd(), 'mesh.bin'), buffer);
+
+              console.log('write mesh 6', roomMeshSize, lastRoomMeshSize);
+
+              lastRoomMeshSize = roomMeshSize;
+            }
           }
         }
 
