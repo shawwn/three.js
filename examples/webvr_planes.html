@@ -45,7 +45,6 @@
       let terrainMesh = null;
       let bb8 = null;
       let r2d2 = null;
-      // let jailMesh = null;
       let robotJailMesh = null;
       let lastRoomMeshSize = 0;
       const updates = [];
@@ -383,8 +382,6 @@
           const mesh = new THREE.Mesh(geometry, material);
           return mesh;
         };
-        // jailMesh = _makeJailMesh();
-        // scene.add(jailMesh);
         robotJailMesh = _makeJailMesh();
         robotScene.add(robotJailMesh);
 
