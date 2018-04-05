@@ -47,6 +47,7 @@
       let r2d2 = null;
       let robotJailMesh = null;
       // let lastRoomMeshSize = 0;
+      let meshFetched = false;
       const updates = [];
 
       const laserLength = 1;
@@ -616,10 +617,7 @@
         }
 
         // update terrain
-        const device = renderer.vr.getDevice();
-        if (device && device.mesh) {
-          const [positions, normals, indices] = device.mesh;
-
+        const _loadMesh = ({positions, normals, indices}) => {
           let updated = false;
           if (positions && terrainMesh.geometry.attributes.position.array !== positions) {
             // console.log('update positions', positions.length);
@@ -636,58 +634,91 @@
             terrainMesh.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
             updated = true;
           }
+          return updated;
+        };
+        const device = renderer.vr.getDevice();
+        if (device) {
+          if (device.mesh && (device.mesh[0] || device.mesh[1] || device.mesh[2])) {
+            const [positions, normals, indices] = device.mesh;
 
-          /* if (typeof fs !== 'undefined' && updated) {
-            console.log('write mesh 1');
+            const updated = _loadMesh({positions, normals, indices});
+            /* if (updated) {
+              const roomMeshSize =
+                Uint32Array.BYTES_PER_ELEMENT + positions.byteLength +
+                Uint32Array.BYTES_PER_ELEMENT + normals.byteLength +
+                Uint32Array.BYTES_PER_ELEMENT + indices.byteLength;
 
-            const roomMeshSize =
-              Uint32Array.BYTES_PER_ELEMENT + positions.byteLength +
-              Uint32Array.BYTES_PER_ELEMENT + normals.byteLength +
-              Uint32Array.BYTES_PER_ELEMENT + indices.byteLength;
+              if (roomMeshSize > lastRoomMeshSize) {
+                const buffer = new Buffer(roomMeshSize);
+                let bufferIndex = 0;
 
-            if (roomMeshSize > lastRoomMeshSize) {
-              const buffer = new Buffer(roomMeshSize);
-              let bufferIndex = 0;
+                // positions
+                new Uint32Array(buffer.buffer, bufferIndex, Uint32Array.BYTES_PER_ELEMENT)
+                  .set(Uint32Array.from([positions.length]));
+                bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+                new Float32Array(buffer.buffer, bufferIndex, positions.length)
+                  .set(positions);
+                bufferIndex += positions.length * Float32Array.BYTES_PER_ELEMENT;
 
-              console.log('write mesh 2');
+                // normals
+                new Uint32Array(buffer.buffer, bufferIndex, Uint32Array.BYTES_PER_ELEMENT)
+                  .set(Uint32Array.from([normals.length]));
+                bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+                new Float32Array(buffer.buffer, bufferIndex, normals.length)
+                  .set(normals);
+                bufferIndex += normals.length * Float32Array.BYTES_PER_ELEMENT;
 
-              // positions
-              new Uint32Array(buffer.buffer, bufferIndex, Uint32Array.BYTES_PER_ELEMENT)
-                .set(Uint32Array.from(positions.length));
-              bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
-              new Float32Array(buffer.buffer, bufferIndex, positions.length)
-                .set(positions);
-              bufferIndex += positions.length * Float32Array.BYTES_PER_ELEMENT;
+                // indices
+                new Uint32Array(buffer.buffer, bufferIndex, Uint32Array.BYTES_PER_ELEMENT)
+                  .set(Uint32Array.from([indices.length]));
+                bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+                new Uint32Array(buffer.buffer, bufferIndex, indices.length)
+                  .set(indices);
+                bufferIndex += indices.length * Uint32Array.BYTES_PER_ELEMENT;
 
-              console.log('write mesh 3');
+                console.log('write mesh', roomMeshSize, lastRoomMeshSize);
 
-              // normals
-              new Uint32Array(buffer.buffer, bufferIndex, Uint32Array.BYTES_PER_ELEMENT)
-                .set(Uint32Array.from(normals.length));
-              bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
-              new Float32Array(buffer.buffer, bufferIndex, normals.length)
-                .set(normals);
-              bufferIndex += normals.length * Float32Array.BYTES_PER_ELEMENT;
+                fs.writeFileSync(path.join(process.cwd(), 'mesh.bin'), buffer);
 
-              console.log('write mesh 4');
+                lastRoomMeshSize = roomMeshSize;
+              }
+            } */
+          } else if (!meshFetched) {
+            fetch('rooms/mesh.bin')
+              .then(res => {
+                console.log('got mesh status code', res.status);
+                if (res.status >= 200 && res.status < 300) {
+                  return res.arrayBuffer();
+                } else {
+                  return Promise.reject(new Error('fetch mesh got invalid status code: ' + res.status));
+                }
+              })
+              .then(arrayBuffer => {
+                let bufferIndex = 0;
 
-              // indices
-              new Uint32Array(buffer.buffer, bufferIndex, Uint32Array.BYTES_PER_ELEMENT)
-                .set(Uint32Array.from(indices.length));
-              bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
-              new Uint32Array(buffer.buffer, bufferIndex, indices.length)
-                .set(indices);
-              bufferIndex += indices.length * Uint32Array.BYTES_PER_ELEMENT;
+                const numPositions = new Uint32Array(arrayBuffer, bufferIndex, 1)[0];
+                bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+                const positions = new Float32Array(arrayBuffer, bufferIndex, numPositions);
+                bufferIndex += positions.byteLength;
 
-              console.log('write mesh 5');
+                const numNormals = new Uint32Array(arrayBuffer, bufferIndex, 1)[0];
+                bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+                const normals = new Float32Array(arrayBuffer, bufferIndex, numNormals);
+                bufferIndex += normals.byteLength;
 
-              fs.writeFileSync(path.join(process.cwd(), 'mesh.bin'), buffer);
+                const numIndices = new Uint32Array(arrayBuffer, bufferIndex, 1)[0];
+                bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+                const indices = new Uint32Array(arrayBuffer, bufferIndex, numIndices);
+                bufferIndex += indices.byteLength;
 
-              console.log('write mesh 6', roomMeshSize, lastRoomMeshSize);
+                _loadMesh({positions, normals, indices});
+              })
+              .catch(err => {
+                console.warn(err.stack);
+              });
 
-              lastRoomMeshSize = roomMeshSize;
-            }
-          } */
+            meshFetched = true;
+          }
         }
 
         /* // depth buffer
