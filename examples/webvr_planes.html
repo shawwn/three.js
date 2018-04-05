@@ -220,7 +220,7 @@
           const renderTarget = new THREE.WebGLRenderTarget(robotRenderTargetSize, robotRenderTargetSize, {
             minFilter: THREE.NearestFilter,
             magFilter: THREE.NearestFilter,
-            format: THREE.RGBFormat,
+            format: THREE.RGBAFormat,
           });
           const pixels = new Uint8Array(robotRenderTargetSize * robotRenderTargetSize * 4);
           renderTarget.pixels = pixels;
