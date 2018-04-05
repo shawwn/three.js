@@ -38,7 +38,7 @@
 			var isMouseDown = false;
 
 			// var INTERSECTED;
-			// var crosshair;
+			var crosshair;
 
       const controllerMeshes = Array(2);
       const planeEntrySize = 3 + 4 + 2 + 1;
@@ -116,7 +116,7 @@
         camera.lookAt(new THREE.Vector3(0, 0, 0));
 				scene.add( camera );
 
-				/* crosshair = new THREE.Mesh(
+				crosshair = new THREE.Mesh(
 					new THREE.RingGeometry( 0.02, 0.04, 32 ),
 					new THREE.MeshBasicMaterial( {
 						color: 0xffffff,
@@ -124,8 +124,8 @@
 						transparent: true
 					} )
 				);
-				crosshair.position.z = - 2;
-				camera.add( crosshair ); */
+				crosshair.position.z = -2;
+				camera.add( crosshair );
 
 				/* room = new THREE.Mesh(
 					new THREE.BoxGeometry( 6, 6, 6, 8, 8, 8 ),
