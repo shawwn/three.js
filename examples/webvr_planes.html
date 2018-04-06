@@ -352,6 +352,7 @@
 
             const waypointMesh = new THREE.Mesh(waypointGeometry, waypointMaterial);
             waypointMesh.visible = false;
+            scene.add(waypointMesh);
             object.waypointMesh = waypointMesh;
 
             updates.push(() => {
@@ -416,6 +417,7 @@
 
             const waypointMesh = new THREE.Mesh(waypointGeometry, waypointMaterial);
             waypointMesh.visible = false;
+            scene.add(waypointMesh);
             object.waypointMesh = waypointMesh;
 
             updates.push(() => {
@@ -591,6 +593,7 @@
 
                 robot.task = null;
                 robot.lastCollisionTime = now;
+                robot.waypointMesh.visible = false;
               }
             }
           }
@@ -694,8 +697,7 @@
             controllerMesh.updateMatrixWorld();
 
             const pressed = gamepad.buttons[1].pressed;
-            controllerMesh.material.color.setHex(pressed ? 0xFF00FF : 0x0000FF);
-
+            controllerMeshes[i].children[0].children[0].material.color.setHex(pressed ? 0x00FF00 : 0xFFFFFF);
             if (pressed && !lastPressed[i]) {
               const robot = i === 0 ? bb8 : r2d2;
               const startPosition = robot.position.clone();
