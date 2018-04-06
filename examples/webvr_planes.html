@@ -25,6 +25,7 @@
 		<script src="js/vr/WebVR.js"></script>
     <script src="https://cdn.rawgit.com/imaya/zlib.js/develop/bin/inflate.min.js"></script>
     <script src="js/BufferGeometryUtils.js"></script>
+    <script src="js/loaders/OBJLoader.js"></script>
     <script src="js/loaders/FBXLoader.js"></script>
 
 		<script>
@@ -185,11 +186,23 @@
         }
 
         const controllerGeometry = cubeGeometry;
+
+        const controllerMeshLoader = new THREE.OBJLoader();
+				controllerMeshLoader.setPath('models/obj/vive-controller/');
+        controllerMeshLoader.load('vr_controller_vive_1_5.obj', object => {
+					const textureLoader = new THREE.TextureLoader();
+					textureLoader.setPath('models/obj/vive-controller/');
+
+					const controllerMesh = object.children[0];
+					controllerMesh.material.map = textureLoader.load('onepointfive_texture.png');
+					controllerMesh.material.specularMap = textureLoader.load('onepointfive_spec.png');
+
+					controllerMeshes[0].add(object.clone());
+					controllerMeshes[1].add(object.clone());
+				});
+
         for (let i = 0; i < 2; i++) {
-          const material = new THREE.MeshPhongMaterial({
-            color: 0x0000FF,
-          });
-          const controllerMesh = new THREE.Mesh(controllerGeometry, material);
+          const controllerMesh = new THREE.Object3D();
           scene.add(controllerMesh);
           controllerMeshes[i] = controllerMesh;
         }
