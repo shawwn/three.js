@@ -268,11 +268,11 @@
               renderer.readRenderTargetPixels(robotRenderTarget, 0, 0, robotRenderTargetSize, robotRenderTargetSize, robotRenderTarget.pixels);
               return robotRenderTarget.pixels;
             },
-            update: () => {
-              robotCamera.position.copy(object.position);
+            update: robotObject => {
+              robotCamera.position.copy(robotObject.position);
               robotCamera.position.y += laserHeight;
-              robotCamera.quaternion.copy(object.quaternion);
-              robotCamera.scale.copy(object.scale);
+              robotCamera.quaternion.copy(robotObject.quaternion);
+              robotCamera.scale.copy(robotObject.scale);
               robotCamera.updateMatrixWorld();
 
               renderer.vr.enabled = false;
@@ -319,7 +319,9 @@
             robotScene.add(robotCamera);
             robotScreen.position.set(-1, 0.5, -1);
             object.getCameraPixels = getCameraPixels;
-            updates.push(update);
+            updates.push(() => {
+              update(object);
+            });
 
             bb8 = object;
 
@@ -368,7 +370,9 @@
             robotScene.add(robotCamera);
             robotScreen.position.set(1, 0.5, -1);
             object.getCameraPixels = getCameraPixels;
-            updates.push(update);
+            updates.push(() => {
+              update(object);
+            });
 
             r2d2 = object;
 
