@@ -40,7 +40,7 @@
 			var crosshair;
 
       const controllerMeshes = Array(2);
-      const waypointMeshes = Array(2);
+      const lastPressed = Array(2);
       const planeEntrySize = 3 + 4 + 2 + 1;
       const planes = Array(32);
       let terrainMesh = null;
@@ -194,13 +194,6 @@
           controllerMeshes[i] = controllerMesh;
         }
 
-        for (let i = 0; i < 2; i++) {
-          const waypointMesh = new THREE.Mesh(waypointGeometry, waypointMaterial);
-          waypointMesh.visible = false;
-          scene.add(waypointMesh);
-          waypointMeshes[i] = waypointMesh;
-        }
-
         const _makeTerrainMesh = () => {
           const geometry = new THREE.BufferGeometry();
 
@@ -331,6 +324,7 @@
 
             object.name = 'bb8';
             object.task = null;
+            object.collided = false;
             object.firstTask = true;
             object.lastCollisionTime = 0;
 
@@ -342,6 +336,10 @@
 
             const collisionObject = new THREE.Mesh(robotBoxGeometry, terrainMaterial);
             robotScene.add(collisionObject);
+
+            const waypointMesh = new THREE.Mesh(waypointGeometry, waypointMaterial);
+            waypointMesh.visible = false;
+            object.waypointMesh = waypointMesh;
 
             updates.push(() => {
               collisionObject.position.copy(object.position);
@@ -402,6 +400,10 @@
 
             const collisionObject = new THREE.Mesh(robotBoxGeometry, terrainMaterial);
             robotScene.add(collisionObject);
+
+            const waypointMesh = new THREE.Mesh(waypointGeometry, waypointMaterial);
+            waypointMesh.visible = false;
+            object.waypointMesh = waypointMesh;
 
             updates.push(() => {
               collisionObject.position.copy(object.position);
@@ -543,12 +545,14 @@
 			}
 
 			function render() {
+        const gamepads = navigator.getGamepads();
 
         const _animateRobot = robot => {
           // remove outdated task
           const now = Date.now();
           if (robot.task && now > robot.task.end) {
             robot.task = null;
+            robot.waypointMesh.visible = false;
           }
 
           // remove collided task
@@ -619,6 +623,7 @@
                     .normalize()
                 );
               robot.task = {
+                type: 'animation',
                 start: now,
                 end: now + (500 + Math.random() * 1500),
                 startPosition,
@@ -630,6 +635,8 @@
               break;
             }
           }
+          robot.collided = collided;
+
           // animate
           if (robot.task) {
             const timeFactor = (now - robot.task.start) / (robot.task.end - robot.task.start);
@@ -663,7 +670,6 @@
         } */
 
         // update gamepads
-        const gamepads = navigator.getGamepads();
         for (let i = 0; i < gamepads.length; i++) {
           const gamepad = gamepads[i];
           if (gamepad) {
@@ -677,12 +683,62 @@
             const pressed = gamepad.buttons[1].pressed;
             controllerMesh.material.color.setHex(pressed ? 0xFF00FF : 0x0000FF);
 
-            if (pressed) {
-              waypointMesh = waypointMeshes[i];
-              waypointMesh.position.set(gamepad.pose.position[0], 0, gamepad.pose.position[2]);
+            if (pressed && !lastPressed[i]) {
+              const robot = i === 0 ? bb8 : r2d2;
+              const startPosition = robot.position.clone();
+              const directionVector = (() => {
+                if (robot.firstTask) {
+                  return new THREE.Vector3(
+                    -0.5 + Math.random(),
+                    0,
+                    -0.5 + Math.random()
+                  )
+                    .normalize();
+                } else {
+                  if (!robot.collided) {
+                    return new THREE.Vector3(
+                      0,
+                      0,
+                      -1
+                    )
+                      .applyQuaternion(robot.quaternion)
+                  } else {
+                    return new THREE.Vector3(
+                      -0.5 + Math.random(),
+                      0,
+                      1
+                    )
+                      .normalize()
+                      .applyQuaternion(robot.quaternion)
+                  }
+                }
+              })();
+              const endPosition = new THREE.Vector3(gamepad.pose.position[0], 0, gamepad.pose.position[2]);
+              const startRotation = robot.quaternion.clone();
+              const endRotation = new THREE.Quaternion()
+                .setFromUnitVectors(
+                  new THREE.Vector3(0, 0, -1),
+                  endPosition.clone()
+                    .sub(startPosition)
+                    .normalize()
+                );
+              const now = Date.now();
+              robot.task = {
+                type: 'waypoint',
+                start: now,
+                end: now + 1000,
+                startPosition,
+                endPosition,
+                startRotation,
+                endRotation,
+              };
+
+              const {waypointMesh} = robot;
+              waypointMesh.position.copy(robot.task.endPosition);
               waypointMesh.updateMatrixWorld();
               waypointMesh.visible = true;
             }
+            lastPressed[i] = pressed;
           }
         }
 
