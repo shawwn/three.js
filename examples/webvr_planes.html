@@ -40,6 +40,7 @@
 			var crosshair;
 
       const controllerMeshes = Array(2);
+      const waypointMeshes = Array(2);
       const planeEntrySize = 3 + 4 + 2 + 1;
       const planes = Array(32);
       let terrainMesh = null;
@@ -77,6 +78,10 @@
             new THREE.Vector3(1, 1, 1)
           )
         );
+      const waypointGeometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1);
+      const waypointMaterial = new THREE.MeshPhongMaterial({
+        color: 0x00FF00,
+      });
       const terrainMaterial = new THREE.ShaderMaterial({
         vertexShader: `\
           void main() {
@@ -180,13 +185,20 @@
         }
 
         const controllerGeometry = cubeGeometry;
-        const controllerMaterial = new THREE.MeshPhongMaterial({
-          color: 0x0000FF,
-        });
         for (let i = 0; i < 2; i++) {
-          const controllerMesh = new THREE.Mesh(controllerGeometry, controllerMaterial);
+          const material = new THREE.MeshPhongMaterial({
+            color: 0x0000FF,
+          });
+          const controllerMesh = new THREE.Mesh(controllerGeometry, material);
           scene.add(controllerMesh);
           controllerMeshes[i] = controllerMesh;
+        }
+
+        for (let i = 0; i < 2; i++) {
+          const waypointMesh = new THREE.Mesh(waypointGeometry, waypointMaterial);
+          waypointMesh.visible = false;
+          scene.add(waypointMesh);
+          waypointMeshes[i] = waypointMesh;
         }
 
         const _makeTerrainMesh = () => {
@@ -661,6 +673,16 @@
             controllerMesh.position.fromArray(gamepad.pose.position);
             controllerMesh.quaternion.fromArray(gamepad.pose.orientation);
             controllerMesh.updateMatrixWorld();
+
+            const pressed = gamepad.buttons[1].pressed;
+            controllerMesh.material.color.setHex(pressed ? 0xFF00FF : 0x0000FF);
+
+            if (pressed) {
+              waypointMesh = waypointMeshes[i];
+              waypointMesh.position.set(gamepad.pose.position[0], 0, gamepad.pose.position[2]);
+              waypointMesh.updateMatrixWorld();
+              waypointMesh.visible = true;
+            }
           }
         }
 
