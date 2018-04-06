@@ -69,6 +69,14 @@
               new THREE.Vector3(1, 1, 1)
             )
         );
+      const robotBoxGeometry = new THREE.BoxBufferGeometry(0.5, 1, 0.5)
+        .applyMatrix(
+          new THREE.Matrix4().compose(
+            new THREE.Vector3(0, 1/2, 0),
+            new THREE.Quaternion(),
+            new THREE.Vector3(1, 1, 1)
+          )
+        );
       const terrainMaterial = new THREE.ShaderMaterial({
         vertexShader: `\
           void main() {
@@ -207,7 +215,7 @@
           return mesh;
         };
         terrainMesh = _makeTerrainMesh();
-        scene.add(terrainMesh);
+        // scene.add(terrainMesh);
         robotTerrainMesh = _makeTerrainMesh();
         robotScene.add(robotTerrainMesh);
 
@@ -319,7 +327,16 @@
             robotScene.add(robotCamera);
             robotScreen.position.set(-1, 0.5, -1);
             object.getCameraPixels = getCameraPixels;
+
+            const collisionObject = new THREE.Mesh(robotBoxGeometry, terrainMaterial);
+            robotScene.add(collisionObject);
+
             updates.push(() => {
+              collisionObject.position.copy(object.position);
+              collisionObject.quaternion.copy(object.quaternion);
+              collisionObject.scale.copy(object.scale);
+              collisionObject.updateMatrixWorld();
+
               update(object);
             });
 
@@ -370,7 +387,16 @@
             robotScene.add(robotCamera);
             robotScreen.position.set(1, 0.5, -1);
             object.getCameraPixels = getCameraPixels;
+
+            const collisionObject = new THREE.Mesh(robotBoxGeometry, terrainMaterial);
+            robotScene.add(collisionObject);
+
             updates.push(() => {
+              collisionObject.position.copy(object.position);
+              collisionObject.quaternion.copy(object.quaternion);
+              collisionObject.scale.copy(object.scale);
+              collisionObject.updateMatrixWorld();
+
               update(object);
             });
 
@@ -404,7 +430,7 @@
           return mesh;
         };
         jailMesh = _makeJailMesh();
-        scene.add(jailMesh);
+        // scene.add(jailMesh);
         robotJailMesh = _makeJailMesh();
         robotScene.add(robotJailMesh);
 
