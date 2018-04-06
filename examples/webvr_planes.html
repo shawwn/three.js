@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 	<head>
-		<title>three.js webvr - cubes</title>
+		<title>three.js webvr - robots</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 		<!-- Origin Trial Token, feature = WebVR (For Chrome M62+), origin = https://threejs.org, expires = 2018-04-03 -->
@@ -131,6 +131,7 @@
 				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.1, 10 );
         camera.position.set(0, 2, 5);
         camera.lookAt(new THREE.Vector3(0, 0, 0));
+        camera.rotation.order = 'YXZ';
 				scene.add( camera );
 
 				crosshair = new THREE.Mesh(
@@ -551,6 +552,72 @@
 
 			}
 
+      const keys = {
+        up: false,
+        down: false,
+        left: false,
+        right: false,
+      };
+      window.addEventListener('keydown', e => {
+        switch (e.keyCode) {
+          case 87: { // W
+            keys.up = true;
+            if (!window.document.pointerLockElement) {
+              renderer.domElement.requestPointerLock();
+            }
+            break;
+          }
+          case 83: { // S
+            keys.down = true;
+            if (!window.document.pointerLockElement) {
+              renderer.domElement.requestPointerLock();
+            }
+            break;
+          }
+          case 65: { // A
+            keys.left = true;
+            if (!window.document.pointerLockElement) {
+              renderer.domElement.requestPointerLock();
+            }
+            break;
+          }
+          case 68: { // D
+            keys.right = true;
+            if (!window.document.pointerLockElement) {
+              renderer.domElement.requestPointerLock();
+            }
+            break;
+          }
+        }
+      });
+      window.addEventListener('keyup', e => {
+        switch (e.keyCode) {
+          case 87: { // W
+            keys.up = false;
+            break;
+          }
+          case 83: { // S
+            keys.down = false;
+            break;
+          }
+          case 65: { // A
+            keys.left = false;
+            break;
+          }
+          case 68: { // D
+            keys.right = false;
+            break;
+          }
+        }
+      });
+      window.addEventListener('mousemove', e => {
+        if (window.document.pointerLockElement) {
+          const {movementX, movementY} = e;
+          camera.rotation.y -= movementX * 0.01;
+          camera.rotation.x -= movementY * 0.01;
+        }
+      });
+
 			//
 
 			function animate() {
@@ -755,6 +822,32 @@
             }
             lastPressed[i] = pressed;
           }
+        }
+
+        // update controls
+        if (window.document.pointerLockElement) {
+          const directionVector = new THREE.Vector3();
+          if (keys.up) {
+            directionVector.z--;
+          }
+          if (keys.down) {
+            directionVector.z++;
+          }
+          if (keys.left) {
+            directionVector.x--;
+          }
+          if (keys.right) {
+            directionVector.x++;
+          }
+          directionVector
+            .normalize()
+            .multiplyScalar(0.1);
+          const euler = camera.rotation.clone();
+          euler.x = 0;
+          camera.position.add(
+            directionVector
+              .applyEuler(euler)
+          );
         }
 
         // update terrain
