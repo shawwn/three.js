@@ -50,7 +50,6 @@
       let jailMesh = null;
       let robotJailMesh = null;
       // let lastRoomMeshSize = 0;
-      let meshFetched = false;
       const updates = [];
 
       const laserLength = 1;
@@ -233,9 +232,62 @@
           return mesh;
         };
         terrainMesh = _makeTerrainMesh();
-        // scene.add(terrainMesh);
+        scene.add(terrainMesh);
         robotTerrainMesh = _makeTerrainMesh();
         robotScene.add(robotTerrainMesh);
+
+        const _loadTerrainMesh = (terrainMesh, {positions, normals, indices}) => {
+          let updated = false;
+          if (positions && terrainMesh.geometry.attributes.position.array !== positions) {
+            // console.log('update positions', positions.length);
+            terrainMesh.geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+            updated = true;
+          }
+          if (normals && terrainMesh.geometry.attributes.normal.array !== normals) {
+            // console.log('update normals', normals.length, normals.slice(0, 9), normals instanceof Float32Array);
+            terrainMesh.geometry.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
+            updated = true;
+          }
+          if (indices && terrainMesh.geometry.index.array !== indices) {
+            // console.log('update indices', indices.length, indices.slice(0, 3), indices instanceof Uint32Array);
+            terrainMesh.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+            updated = true;
+          }
+          return updated;
+        };
+        fetch('rooms/mesh.bin')
+          .then(res => {
+            console.log('got mesh status code', res.status);
+            if (res.status >= 200 && res.status < 300) {
+              return res.arrayBuffer();
+            } else {
+              return Promise.reject(new Error('fetch mesh got invalid status code: ' + res.status));
+            }
+          })
+          .then(arrayBuffer => {
+            let bufferIndex = 0;
+
+            const numPositions = new Uint32Array(arrayBuffer, bufferIndex, 1)[0];
+            bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+            const positions = new Float32Array(arrayBuffer, bufferIndex, numPositions);
+            bufferIndex += positions.byteLength;
+
+            const numNormals = new Uint32Array(arrayBuffer, bufferIndex, 1)[0];
+            bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+            const normals = new Float32Array(arrayBuffer, bufferIndex, numNormals);
+            bufferIndex += normals.byteLength;
+
+            const numIndices = new Uint32Array(arrayBuffer, bufferIndex, 1)[0];
+            bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
+            const indices = new Uint32Array(arrayBuffer, bufferIndex, numIndices);
+            bufferIndex += indices.byteLength;
+
+            _loadTerrainMesh(terrainMesh, {positions, normals, indices});
+            _loadTerrainMesh(robotTerrainMesh, {positions, normals, indices});
+          })
+          .catch(err => {
+            console.warn(err.stack);
+          });
 
         const _makeLaserMesh = () => {
           const geometry = laserGeometry;
@@ -657,6 +709,8 @@
                   display.requestPresent([{
                     source: renderer.domElement,
                   }]);
+
+                  terrainMesh.visible = false;
                 }
               })
               .catch(err => {
@@ -900,31 +954,12 @@
         }
 
         // update terrain
-        const _loadMesh = (terrainMesh, {positions, normals, indices}) => {
-          let updated = false;
-          if (positions && terrainMesh.geometry.attributes.position.array !== positions) {
-            // console.log('update positions', positions.length);
-            terrainMesh.geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
-            updated = true;
-          }
-          if (normals && terrainMesh.geometry.attributes.normal.array !== normals) {
-            // console.log('update normals', normals.length, normals.slice(0, 9), normals instanceof Float32Array);
-            terrainMesh.geometry.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
-            updated = true;
-          }
-          if (indices && terrainMesh.geometry.index.array !== indices) {
-            // console.log('update indices', indices.length, indices.slice(0, 3), indices instanceof Uint32Array);
-            terrainMesh.geometry.setIndex(new THREE.BufferAttribute(indices, 1));
-            updated = true;
-          }
-          return updated;
-        };
         const device = renderer.vr.getDevice();
         if (device) {
           if (device.mesh && (device.mesh[0] || device.mesh[1] || device.mesh[2])) {
             const [positions, normals, indices] = device.mesh;
 
-            const updated = _loadMesh(robotTerrainMesh, {positions, normals, indices});
+            const updated = _loadTerrainMesh(robotTerrainMesh, {positions, normals, indices});
             /* if (updated) {
               const roomMeshSize =
                 Uint32Array.BYTES_PER_ELEMENT + positions.byteLength +
@@ -966,42 +1001,6 @@
                 lastRoomMeshSize = roomMeshSize;
               }
             } */
-          } else if (!meshFetched) {
-            fetch('rooms/mesh.bin')
-              .then(res => {
-                console.log('got mesh status code', res.status);
-                if (res.status >= 200 && res.status < 300) {
-                  return res.arrayBuffer();
-                } else {
-                  return Promise.reject(new Error('fetch mesh got invalid status code: ' + res.status));
-                }
-              })
-              .then(arrayBuffer => {
-                let bufferIndex = 0;
-
-                const numPositions = new Uint32Array(arrayBuffer, bufferIndex, 1)[0];
-                bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
-                const positions = new Float32Array(arrayBuffer, bufferIndex, numPositions);
-                bufferIndex += positions.byteLength;
-
-                const numNormals = new Uint32Array(arrayBuffer, bufferIndex, 1)[0];
-                bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
-                const normals = new Float32Array(arrayBuffer, bufferIndex, numNormals);
-                bufferIndex += normals.byteLength;
-
-                const numIndices = new Uint32Array(arrayBuffer, bufferIndex, 1)[0];
-                bufferIndex += Uint32Array.BYTES_PER_ELEMENT;
-                const indices = new Uint32Array(arrayBuffer, bufferIndex, numIndices);
-                bufferIndex += indices.byteLength;
-
-                _loadMesh(terrainMesh, {positions, normals, indices});
-                _loadMesh(robotTerrainMesh, {positions, normals, indices});
-              })
-              .catch(err => {
-                console.warn(err.stack);
-              });
-
-            meshFetched = true;
           }
         }
 
