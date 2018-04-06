@@ -499,23 +499,21 @@
 				renderer.vr.enabled = true;
 				container.appendChild( renderer.domElement );
 
-				renderer.domElement.addEventListener( 'mousedown', onMouseDown, false );
-				renderer.domElement.addEventListener( 'mouseup', onMouseUp, false );
-				renderer.domElement.addEventListener( 'touchstart', onMouseDown, false );
-				renderer.domElement.addEventListener( 'touchend', onMouseUp, false );
+				// renderer.domElement.addEventListener( 'mousedown', onMouseDown, false );
+				// renderer.domElement.addEventListener( 'mouseup', onMouseUp, false );
 
 				window.addEventListener( 'resize', onWindowResize, false );
 
 				//
 
-				window.addEventListener( 'vrdisplaypointerrestricted', onPointerRestricted, false );
-				window.addEventListener( 'vrdisplaypointerunrestricted', onPointerUnrestricted, false );
+				// window.addEventListener( 'vrdisplaypointerrestricted', onPointerRestricted, false );
+				// window.addEventListener( 'vrdisplaypointerunrestricted', onPointerUnrestricted, false );
 
-				document.body.appendChild( WEBVR.createButton( renderer ) );
+				// document.body.appendChild( WEBVR.createButton( renderer ) );
 
 			}
 
-			function onMouseDown() {
+			/* function onMouseDown() {
 
 				isMouseDown = true;
 
@@ -541,7 +539,7 @@
 				if ( currentPointerLockElement && currentPointerLockElement === expectedPointerLockElement && typeof(document.exitPointerLock) === 'function' ) {
 					document.exitPointerLock();
 				}
-			}
+			} */
 
 			function onWindowResize() {
 
@@ -552,6 +550,49 @@
 
 			}
 
+      window.addEventListener('mousedown', () => {
+        if (!window.document.pointerLockElement) {
+          renderer.domElement.requestPointerLock();
+        } else {
+          const ray = new THREE.Ray(
+            camera.position,
+            new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
+          );
+          const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(
+            new THREE.Vector3(0, 1, 0),
+            new THREE.Vector3(0, 0, 0)
+          );
+          const intersectionPoint = ray.intersectPlane(plane, new THREE.Vector3());
+          if (intersectionPoint) {
+            const robot = bb8;
+            const startPosition = robot.position.clone();
+            const endPosition = intersectionPoint;
+            const startRotation = robot.quaternion.clone();
+            const endRotation = new THREE.Quaternion()
+              .setFromUnitVectors(
+                new THREE.Vector3(0, 0, -1),
+                endPosition.clone()
+                  .sub(startPosition)
+                  .normalize()
+              );
+            const now = Date.now();
+            robot.task = {
+              type: 'waypoint',
+              start: now,
+              end: now + 1000,
+              startPosition,
+              endPosition,
+              startRotation,
+              endRotation,
+            };
+
+            const {waypointMesh} = robot;
+            waypointMesh.position.copy(robot.task.endPosition);
+            waypointMesh.updateMatrixWorld();
+            waypointMesh.visible = true;
+          }
+        }
+      });
       const keys = {
         up: false,
         down: false,
@@ -586,6 +627,42 @@
             if (!window.document.pointerLockElement) {
               renderer.domElement.requestPointerLock();
             }
+            break;
+          }
+          case 86: { // V
+            navigator.getVRDisplays()
+              .then(displays => {
+                const display = displays.find(display =>
+                  display.constructor.name === 'VRDisplay'
+                );
+                if (display) {
+                  renderer.vr.setDevice(display);
+                  display.requestPresent([{
+                    source: renderer.domElement,
+                  }]);
+                }
+              })
+              .catch(err => {
+                console.warn(err);
+              });
+            break;
+          }
+          case 77: { // M
+            navigator.getVRDisplays()
+              .then(displays => {
+                const display = displays.find(display =>
+                  display.constructor.name === 'MLDisplay'
+                );
+                if (display) {
+                  renderer.vr.setDevice(display);
+                  display.requestPresent([{
+                    source: renderer.domElement,
+                  }]);
+                }
+              })
+              .catch(err => {
+                console.warn(err);
+              });
             break;
           }
         }
@@ -768,33 +845,6 @@
             if (pressed && !lastPressed[i]) {
               const robot = i === 0 ? bb8 : r2d2;
               const startPosition = robot.position.clone();
-              const directionVector = (() => {
-                if (robot.firstTask) {
-                  return new THREE.Vector3(
-                    -0.5 + Math.random(),
-                    0,
-                    -0.5 + Math.random()
-                  )
-                    .normalize();
-                } else {
-                  if (!robot.collided) {
-                    return new THREE.Vector3(
-                      0,
-                      0,
-                      -1
-                    )
-                      .applyQuaternion(robot.quaternion)
-                  } else {
-                    return new THREE.Vector3(
-                      -0.5 + Math.random(),
-                      0,
-                      1
-                    )
-                      .normalize()
-                      .applyQuaternion(robot.quaternion)
-                  }
-                }
-              })();
               const endPosition = new THREE.Vector3(gamepad.pose.position[0], 0, gamepad.pose.position[2]);
               const startRotation = robot.quaternion.clone();
               const endRotation = new THREE.Quaternion()
