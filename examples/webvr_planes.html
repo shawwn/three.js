@@ -248,7 +248,7 @@
           object.add(backMesh);
           return object;
         };
-        const _setRobotCamera = (object, i) => {
+        const _makeRobotCamera = () => {
           const robotRenderTarget = makeRobotRenderTarget();
           const robotCamera = new THREE.PerspectiveCamera();
           robotCamera.near = 0.01;
@@ -260,25 +260,28 @@
           robotScreen.position.set(i === 0 ? -1 : 1, 0.5, -1);
           scene.add(robotScreen);
 
-          object.getCameraPixels = () => {
-            renderer.readRenderTargetPixels(robotRenderTarget, 0, 0, robotRenderTargetSize, robotRenderTargetSize, robotRenderTarget.pixels);
-            return robotRenderTarget.pixels;
+          return {
+            robotCamera,
+            robotScreen,
+            getCameraPixels: () => {
+              renderer.readRenderTargetPixels(robotRenderTarget, 0, 0, robotRenderTargetSize, robotRenderTargetSize, robotRenderTarget.pixels);
+              return robotRenderTarget.pixels;
+            },
+            update: () => {
+              robotCamera.position.copy(object.position);
+              robotCamera.position.y += laserHeight;
+              robotCamera.quaternion.copy(object.quaternion);
+              robotCamera.scale.copy(object.scale);
+              robotCamera.updateMatrixWorld();
+
+              renderer.vr.enabled = false;
+              renderer.setClearColor(0x191919, 1); // 0xFFFFFF * 0.1
+              renderer.render(robotScene, robotCamera, robotRenderTarget);
+              renderer.setRenderTarget(null);
+              renderer.setClearColor(0x000000, 0);
+              renderer.vr.enabled = true;
+            },
           };
-
-          updates.push(() => {
-            robotCamera.position.copy(object.position);
-            robotCamera.position.y += laserHeight;
-            robotCamera.quaternion.copy(object.quaternion);
-            robotCamera.scale.copy(object.scale);
-            robotCamera.updateMatrixWorld();
-
-            renderer.vr.enabled = false;
-            renderer.setClearColor(0x191919, 1); // 0xFFFFFF * 0.1
-            renderer.render(robotScene, robotCamera, robotRenderTarget);
-            renderer.setRenderTarget(null);
-            renderer.setClearColor(0x000000, 0);
-            renderer.vr.enabled = true;
-          });
         };
 
         new THREE.FBXLoader()
@@ -310,7 +313,12 @@
             object.firstTask = true;
             object.lastCollisionTime = 0;
 
-            _setRobotCamera(object, 0);
+            const {robotCamera, robotScreen, getCameraPixels, update} = _makeRobotCamera();
+            scene.add(robotScreen);
+            robotScene.add(robotCamera);
+            robotScreen.position.set(-1, 0.5, -1);
+            object.getCameraPixels = getCameraPixels;
+            updates.push(update);
 
             bb8 = object;
 
@@ -354,7 +362,12 @@
             object.firstTask = true;
             object.lastCollisionTime = 0;
 
-            _setRobotCamera(object, 1);
+            const {robotCamera, robotScreen, getCameraPixels, update} = _makeRobotCamera();
+            scene.add(robotScreen);
+            robotScene.add(robotCamera);
+            robotScreen.position.set(1, 0.5, -1);
+            object.getCameraPixels = getCameraPixels;
+            updates.push(update);
 
             r2d2 = object;
 
