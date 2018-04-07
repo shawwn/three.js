@@ -349,8 +349,15 @@
             update: robotObject => {
               robotCamera.position.copy(robotObject.position);
               robotCamera.position.y += laserHeight;
-              robotCamera.quaternion.copy(robotObject.quaternion);
-              robotCamera.scale.copy(robotObject.scale);
+              if (robotObject.task) {
+                robotCamera.quaternion.setFromUnitVectors(
+                  new THREE.Vector3(0, 0, -1),
+                  robotObject.task.endPosition.clone()
+                    .sub(robotObject.task.startPosition)
+                );
+              } else {
+                robotCamera.quaternion.copy(robotObject.quaternion);
+              }
               robotCamera.updateMatrixWorld();
 
               renderer.vr.enabled = false;
