@@ -317,11 +317,11 @@ var files = {
 	],
 	"webvr": [
 		"webvr_cubes",
-		"webvr_planes",
 		"webvr_daydream",
 		"webvr_gearvr",
 		"webvr_panorama",
-		"webvr_rollercoaster",
+		"webvr_robots",
+		"webvr_rollercqoaster",
 		"webvr_sandbox",
 		"webvr_video",
 		"webvr_vive",
