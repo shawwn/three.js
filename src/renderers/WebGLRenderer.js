@@ -2496,7 +2496,20 @@ function WebGLRenderer( parameters ) {
 
 		}
 
-		var framebuffer = properties.get( renderTarget ).__webglFramebuffer;
+    var __webglFramebuffer = properties.get( renderTarget ).__webglFramebuffer;
+    var framebuffer;
+
+    if ( renderTarget.isWebGLRenderTargetCube ) {
+
+      framebuffer = __webglFramebuffer[ renderTarget.activeCubeFace ];
+
+      // console.log('get cube', renderTarget.activeCubeFace, framebuffer);
+
+    } else {
+
+      framebuffer = __webglFramebuffer;
+
+    }
 
 		if ( framebuffer ) {
 
@@ -2513,6 +2526,7 @@ function WebGLRenderer( parameters ) {
 			try {
 
 				var texture = renderTarget.texture;
+
 				var textureFormat = texture.format;
 				var textureType = texture.type;
 
