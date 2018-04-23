@@ -107,10 +107,11 @@
 			var stats;
 			var camera, scene, material, renderer;
 
+      const pupilOffset = 0.0625;
       const cameraSize = 512;
-      let cubeCamera = null;
-      let facePlanesMesh = null;
-      let cubeMesh = null;
+      let cubeCameras = [null, null];
+      let facePlanesMeshes = [null, null];
+      let skyboxMesh = null;
       const tempPixelBuffer = new Uint8Array(cameraSize * cameraSize * 4);
 
 			init();
@@ -209,53 +210,49 @@
         mesh.position.y = 1.5;
 				scene.add( mesh );
 
-        cubeCamera = new THREE.CubeCamera( 0.1, 10 * 1024, cameraSize );
-        cubeCamera.position.set(0, 1, 1);
-				cubeCamera.renderTarget.texture.minFilter = THREE.LinearMipMapLinearFilter;
-				cubeCamera.renderTarget.format = THREE.RGBAFormat;
-        scene.add(cubeCamera);
+        for (let i = 0; i < cubeCameras.length; i++) {
+          const cubeCamera = new THREE.CubeCamera( 0.1, 10 * 1024, cameraSize );
+          cubeCamera.position.set((i === 0 ? -1 : 1) * pupilOffset/2, 1, 1);
+          cubeCamera.renderTarget.texture.minFilter = THREE.LinearMipMapLinearFilter;
+          cubeCamera.renderTarget.format = THREE.RGBAFormat;
+          scene.add(cubeCamera);
 
-        facePlanesMesh = new THREE.Object3D();
-        facePlanesMesh.facePlanes = Array(6);
-        for (let i = 0; i < facePlanesMesh.facePlanes.length; i++) {
-          const geometry = new THREE.PlaneBufferGeometry(1, 1);
-          const texture = new THREE.DataTexture(
-            new Uint8Array(cameraSize * cameraSize * 4),
-            cameraSize,
-            cameraSize,
-            THREE.RGBAFormat,
-            THREE.UnsignedByteType,
-            THREE.UVMapping,
-            THREE.ClampToEdgeWrapping,
-            THREE.ClampToEdgeWrapping,
-            THREE.LinearFilter,
-            THREE.LinearFilter
-          );
-          texture.needsUpdate = true;
-          const material = new THREE.MeshBasicMaterial({
-            map: texture,
-            side: THREE.DoubleSide,
-          });
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.position.x = 0.5 - 6/2 + i;
-          mesh.position.y = 0.5;
-          facePlanesMesh.add(mesh);
-
-          facePlanesMesh.facePlanes[i] = mesh;
+          cubeCameras[i] = cubeCamera;
         }
-        /* const facePlanesBackgroundMesh = (() => {
-          const geometry = new THREE.PlaneBufferGeometry(20, 3);
-          const material = new THREE.MeshBasicMaterial({
-            color: 0x080808,
-            transparent: true,
-            opacity: 0.1,
-          });
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.position.set(0, 1, -1);
-          return mesh;
-        })();
-        facePlanesMesh.add(facePlanesBackgroundMesh);
-        scene.add(facePlanesMesh); */
+
+        for (let i = 0; i < facePlanesMeshes.length; i++) {
+          const facePlanesMesh = new THREE.Object3D();
+          facePlanesMesh.facePlanes = Array(6);
+
+          for (let j = 0; j < facePlanesMesh.facePlanes.length; j++) {
+            const geometry = new THREE.PlaneBufferGeometry(1, 1);
+            const texture = new THREE.DataTexture(
+              new Uint8Array(cameraSize * cameraSize * 4),
+              cameraSize,
+              cameraSize,
+              THREE.RGBAFormat,
+              THREE.UnsignedByteType,
+              THREE.UVMapping,
+              THREE.ClampToEdgeWrapping,
+              THREE.ClampToEdgeWrapping,
+              THREE.LinearFilter,
+              THREE.LinearFilter
+            );
+            texture.needsUpdate = true;
+            const material = new THREE.MeshBasicMaterial({
+              map: texture,
+              side: THREE.DoubleSide,
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.x = 0.5 - 6/2 + i;
+            mesh.position.y = 0.5;
+            facePlanesMesh.add(mesh);
+
+            facePlanesMesh.facePlanes[j] = mesh;
+          }
+
+          facePlanesMeshes[i] = facePlanesMesh;
+        }
 
         const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.5);
         scene.add(ambientLight);
@@ -264,10 +261,13 @@
         directionalLight.position.set(1, 2, 3);
         scene.add(directionalLight);
 
-        const cubeGeometry = new THREE.BoxBufferGeometry(100, 100, 100);
-        const cubeMaterials = facePlanesMesh.facePlanes.map(mesh => mesh.material);
-        cubeMesh = new THREE.Mesh(cubeGeometry, cubeMaterials);
-        scene.add(cubeMesh);
+        skyboxMesh = (() => {
+          const geometry = new THREE.BoxBufferGeometry(100, 100, 100);
+          const materials = facePlanesMeshes[0].facePlanes.map(mesh => mesh.material);
+          const mesh = new THREE.Mesh(geometry, materials);
+          return mesh;
+        })();
+        scene.add(skyboxMesh);
 
         const leftCube = (() => {
           const geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1);
@@ -325,21 +325,26 @@
 			}
 
       setTimeout(() => {
-        cubeMesh.visible = false;
-        facePlanesMesh.visible = false;
-        cubeCamera.update(renderer, scene);
-        cubeMesh.visible = true;
-        facePlanesMesh.visible = true;
+        for (let i = 0; i < cubeCameras.length; i++) {
+          const cubeCamera = cubeCameras[i];
+          const facePlanesMesh = facePlanesMeshes[i];
 
-        for (let i = 0; i < facePlanesMesh.facePlanes.length; i++) {
-          const facePlane = facePlanesMesh.facePlanes[i];
-          const facePixelBuffer = facePlane.material.map.image.data;
+          skyboxMesh.visible = false;
+          facePlanesMesh.visible = false;
+          cubeCamera.update(renderer, scene);
+          skyboxMesh.visible = true;
+          facePlanesMesh.visible = true;
 
-          cubeCamera.renderTarget.activeCubeFace = i;
-          renderer.readRenderTargetPixels(cubeCamera.renderTarget, 0, 0, cameraSize, cameraSize, tempPixelBuffer);
-          _flipImage(cameraSize, cameraSize, 4, tempPixelBuffer, facePixelBuffer);
+          for (let j = 0; j < facePlanesMesh.facePlanes.length; j++) {
+            const facePlane = facePlanesMesh.facePlanes[j];
+            const facePixelBuffer = facePlane.material.map.image.data;
 
-          facePlane.material.map.needsUpdate = true;
+            cubeCamera.renderTarget.activeCubeFace = j;
+            renderer.readRenderTargetPixels(cubeCamera.renderTarget, 0, 0, cameraSize, cameraSize, tempPixelBuffer);
+            _flipImage(cameraSize, cameraSize, 4, tempPixelBuffer, facePixelBuffer);
+
+            facePlane.material.map.needsUpdate = true;
+          }
         }
       }, 2000);
 
