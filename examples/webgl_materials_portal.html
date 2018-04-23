@@ -269,39 +269,36 @@
         cubeMesh = new THREE.Mesh(cubeGeometry, cubeMaterials);
         scene.add(cubeMesh);
 
-        (() => {
-          var loader = new THREE.JSONLoader();
-          loader.load( 'models/json/leeperrysmith/LeePerrySmith.json', function ( geometry, materials ) {
-            const mesh = new THREE.Mesh(geometry, materials);
-            mesh.position.x = 1;
-            mesh.rotation.y = -Math.PI/2;
-            mesh.rotation.order = 'YXZ';
-            mesh.scale.multiplyScalar(1/5);
-            scene.add(mesh);
+        const leftCube = (() => {
+          const geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1);
+          const material = new THREE.MeshPhongMaterial({
+            color: 0xFF0000,
           });
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.x = -1;
+          return mesh;
         })();
-        (() => {
-          var loader = new THREE.JSONLoader();
-          loader.load( 'models/json/leeperrysmith/LeePerrySmith.json', function ( geometry, materials ) {
-            const mesh = new THREE.Mesh(geometry, materials);
-            mesh.position.x = -1;
-            mesh.rotation.y = Math.PI/2;
-            mesh.rotation.order = 'YXZ';
-            mesh.scale.multiplyScalar(1/5);
-            scene.add(mesh);
+        scene.add(leftCube);
+        const rightCube = (() => {
+          const geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1);
+          const material = new THREE.MeshPhongMaterial({
+            color: 0x00FF00,
           });
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.x = 1;
+          return mesh;
         })();
-        (() => {
-          var loader = new THREE.JSONLoader();
-          loader.load( 'models/json/leeperrysmith/LeePerrySmith.json', function ( geometry, materials ) {
-            const mesh = new THREE.Mesh(geometry, materials);
-            mesh.position.z = 2;
-            mesh.rotation.y = Math.PI;
-            mesh.rotation.order = 'YXZ';
-            mesh.scale.multiplyScalar(1/5);
-            scene.add(mesh);
+        scene.add(rightCube);
+        const backCube = (() => {
+          const geometry = new THREE.BoxBufferGeometry(0.1, 0.1, 0.1);
+          const material = new THREE.MeshPhongMaterial({
+            color: 0x0000FF,
           });
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.z = 1;
+          return mesh;
         })();
+        scene.add(backCube);
 
 			}
 
@@ -325,6 +322,9 @@
 
 				renderer.render( scene, camera );
 
+			}
+
+      setTimeout(() => {
         cubeMesh.visible = false;
         facePlanesMesh.visible = false;
         cubeCamera.update(renderer, scene);
@@ -341,8 +341,7 @@
 
           facePlane.material.map.needsUpdate = true;
         }
-
-			}
+      }, 2000);
 
       window.addEventListener('keypress', e => {
         if (e.keyCode === 112) { // F1
