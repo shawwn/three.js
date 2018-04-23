@@ -243,7 +243,7 @@
 
           facePlanesMesh.facePlanes[i] = mesh;
         }
-        const facePlanesBackgroundMesh = (() => {
+        /* const facePlanesBackgroundMesh = (() => {
           const geometry = new THREE.PlaneBufferGeometry(20, 3);
           const material = new THREE.MeshBasicMaterial({
             color: 0x080808,
@@ -255,7 +255,7 @@
           return mesh;
         })();
         facePlanesMesh.add(facePlanesBackgroundMesh);
-        scene.add(facePlanesMesh);
+        scene.add(facePlanesMesh); */
 
         const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.5);
         scene.add(ambientLight);
