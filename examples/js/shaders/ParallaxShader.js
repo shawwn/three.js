@@ -54,7 +54,7 @@ THREE.ParallaxShader = {
 
 			"vec2 parallaxMap( in vec3 V ) {",
 
-				"float initialHeight = texture2D( bumpMap, vUv ).r;",
+				"float initialHeight = 1.0 - texture2D( bumpMap, vUv ).r;",
 
 				// No Offset Limitting: messy, floating output at grazing angles.
 				//"vec2 texCoordOffset = parallaxScale * V.xy / V.z * initialHeight;",
@@ -79,7 +79,7 @@ THREE.ParallaxShader = {
 
 				"vec2 currentTextureCoords = vUv;",
 
-				"float heightFromTexture = texture2D( bumpMap, currentTextureCoords ).r;",
+				"float heightFromTexture = 1.0 - texture2D( bumpMap, currentTextureCoords ).r;",
 
 				// while ( heightFromTexture > currentLayerHeight )
 				// Infinite loops are not well supported. Do a "large" finite
@@ -91,7 +91,7 @@ THREE.ParallaxShader = {
 					"currentLayerHeight += layerHeight;",
 					// Shift texture coordinates along vector V
 					"currentTextureCoords -= dtex;",
-					"heightFromTexture = texture2D( bumpMap, currentTextureCoords ).r;",
+					"heightFromTexture = 1.0 - texture2D( bumpMap, currentTextureCoords ).r;",
 				"}",
 
 				"#ifdef USE_STEEP_PARALLAX",
@@ -113,7 +113,7 @@ THREE.ParallaxShader = {
 
 						"deltaTexCoord /= 2.0;",
 						"deltaHeight /= 2.0;",
-						"heightFromTexture = texture2D( bumpMap, currentTextureCoords ).r;",
+						"heightFromTexture = 1.0 - texture2D( bumpMap, currentTextureCoords ).r;",
 						// Shift along or against vector V
 						"if( heightFromTexture > currentLayerHeight ) {", // Below the surface
 
@@ -136,7 +136,7 @@ THREE.ParallaxShader = {
 
 					// Heights for linear interpolation
 					"float nextH = heightFromTexture - currentLayerHeight;",
-					"float prevH = texture2D( bumpMap, prevTCoords ).r - currentLayerHeight + layerHeight;",
+					"float prevH = 1.0 - texture2D( bumpMap, prevTCoords ).r - currentLayerHeight + layerHeight;",
 
 					// Proportions for linear interpolation
 					"float weight = nextH / ( nextH - prevH );",

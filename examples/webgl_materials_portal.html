@@ -56,8 +56,6 @@
 		<script src="js/shaders/ParallaxShader.js"></script>
 
 		<script>
-      let presenting = false;
-
 			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 
 			var stats;
@@ -203,10 +201,6 @@
 
 			function render() {
 
-        if (presenting) {
-          // renderer.state.reset();
-        }
-
 				renderer.render( scene, camera );
 
 			}
@@ -224,8 +218,6 @@
                 display.requestPresent([{
                   source: renderer.domElement,
                 }]);
-
-                presenting = true;
               }
             })
             .catch(err => {
