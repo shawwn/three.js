@@ -130,18 +130,130 @@
       };
 
 			var stats;
-			var camera, scene, material, renderer;
+			var camera, scene, portalScene, material, renderer;
 
       const pupilOffset = 0.0625;
       const cameraSize = 512;
       const portalWorldWidth = 1;
       const portalWorldHeight = portalWorldWidth * 2;
+      const portalBorderWorldWidth = portalWorldWidth * 0.1;
       const portalWidth = 1024;
       const portalHeight = portalWidth * portalWorldHeight / portalWorldWidth;
       let cubeCameras = [null, null];
       let facePlanesMeshes = [null, null];
       let skyboxMeshes = [null, null];
+      let portalMesh = null;
       const tempPixelBuffer = new Uint8Array(cameraSize * cameraSize * 4);
+
+      function concatBufferGeometry(geometries) {
+        geometries = geometries.map(geometry => unindexBufferGeometry(geometry));
+
+        const positions = (() => {
+          const geometryPositions = geometries.map(geometry => geometry.getAttribute('position').array);
+          const numPositions = sum(geometryPositions.map(geometryPosition => geometryPosition.length));
+
+          const result = new Float32Array(numPositions);
+          let i = 0;
+          geometryPositions.forEach(geometryPosition => {
+            result.set(geometryPosition, i);
+            i += geometryPosition.length;
+          });
+          return result;
+        })();
+        const normals = (() => {
+          const geometryNormals = geometries.map(geometry => geometry.getAttribute('normal').array);
+          const numNormals = sum(geometryNormals.map(geometryNormal => geometryNormal.length));
+
+          const result = new Float32Array(numNormals);
+          let i = 0;
+          geometryNormals.forEach(geometryNormal => {
+            result.set(geometryNormal, i);
+            i += geometryNormal.length;
+          });
+          return result;
+        })();
+        const uvs = (() => {
+          const geometryUvs = geometries.map(geometry => geometry.getAttribute('uv').array);
+          const numUvs = sum(geometryUvs.map(geometryUv => geometryUv.length));
+
+          const result = new Float32Array(numUvs);
+          let i = 0;
+          geometryUvs.forEach(geometryUv => {
+            result.set(geometryUv, i);
+            i += geometryUv.length;
+          });
+          return result;
+        })();
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
+        geometry.addAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+        return geometry;
+      }
+      function unindexBufferGeometry(geometry) {
+        if (geometry.index) {
+          const indexes = geometry.index.array;
+          const numIndexes = indexes.length;
+          const positionAttribute = geometry.getAttribute('position');
+          const oldPositions = positionAttribute ? positionAttribute.array : null;
+          const positions = positionAttribute ? new Float32Array(numIndexes * 3) : null;
+          const normalAttribute = geometry.getAttribute('normal');
+          const oldNormals = normalAttribute ? normalAttribute.array : null;
+          const normals = normalAttribute ? new Float32Array(numIndexes * 3) : null;
+          const colorAttribute = geometry.getAttribute('color');
+          const oldColors = colorAttribute ? colorAttribute.array : null;
+          const colors = colorAttribute ? new Float32Array(numIndexes * 3) : null;
+          const uvAttribute = geometry.getAttribute('uv');
+          const oldUvs = uvAttribute ? uvAttribute.array : null;
+          const uvs = uvAttribute ? new Float32Array(numIndexes * 2) : null;
+          for (let i = 0; i < numIndexes; i++) {
+            const index = indexes[i];
+
+            if (positions !== null) {
+              positions[(i * 3) + 0] = oldPositions[(index * 3) + 0];
+              positions[(i * 3) + 1] = oldPositions[(index * 3) + 1];
+              positions[(i * 3) + 2] = oldPositions[(index * 3) + 2];
+            }
+            if (normals !== null) {
+              normals[(i * 3) + 0] = oldNormals[(index * 3) + 0];
+              normals[(i * 3) + 1] = oldNormals[(index * 3) + 1];
+              normals[(i * 3) + 2] = oldNormals[(index * 3) + 2];
+            }
+            if (colors !== null) {
+              colors[(i * 3) + 0] = oldColors[(index * 3) + 0];
+              colors[(i * 3) + 1] = oldColors[(index * 3) + 1];
+              colors[(i * 3) + 2] = oldColors[(index * 3) + 2];
+            }
+            if (uvs !== null) {
+              uvs[(i * 2) + 0] = oldUvs[(index * 2) + 0];
+              uvs[(i * 2) + 1] = oldUvs[(index * 2) + 1];
+            }
+          }
+          if (positions !== null) {
+            geometry.addAttribute('position', new THREE.BufferAttribute(positions, 3));
+          }
+          if (normals !== null) {
+            geometry.addAttribute('normal', new THREE.BufferAttribute(normals, 3));
+          }
+          if (colors !== null) {
+            geometry.addAttribute('color', new THREE.BufferAttribute(colors, 3));
+          }
+          if (uvs !== null) {
+            geometry.addAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+          }
+          geometry.index = null;
+        }
+
+        return geometry;
+      }
+      function sum(a) {
+        let result = 0;
+        for (let i = 0; i < a.length; i++) {
+          result += a[i];
+        }
+        return result;
+      }
 
 			init();
 			animate();
@@ -156,6 +268,8 @@
         camera.layers.enable(1);
 				scene = new THREE.Scene();
         scene.background = new THREE.Color(0x29b6f6);
+
+        portalScene = new THREE.Scene();
 
 				initScene();
 
@@ -286,28 +400,77 @@
           facePlanesMeshes[i] = facePlanesMesh;
         }
 
-        const portalMesh = (() => {
+        portalMesh = (() => {
+          const mesh = new THREE.Object3D();
+          mesh.position.set(0, portalWorldHeight/2, -1);
+
           const renderTarget = new THREE.WebGLRenderTarget(portalWidth, portalHeight, {
             minFilter: THREE.NearestFilter,
             magFilter: THREE.NearestFilter,
             format: THREE.RGBAFormat,
           });
 
-          const geometry = new THREE.PlaneBufferGeometry(portalWorldWidth, portalWorldHeight);
-          const material = (() => {
-            const shaderUniforms = THREE.UniformsUtils.clone(PORTAL_SHADER.uniforms);
-            const shaderMaterial = new THREE.ShaderMaterial({
-              uniforms: shaderUniforms,
-              vertexShader: PORTAL_SHADER.vertexShader,
-              fragmentShader: PORTAL_SHADER.fragmentShader,
-            });
-            shaderMaterial.uniforms.map.value = renderTarget.texture;
-            // shaderMaterial.polygonOffset = true;
-            // shaderMaterial.polygonOffsetFactor = -1;
-            return shaderMaterial;
+          const innerMesh = (() => {
+            const geometry = new THREE.PlaneBufferGeometry(portalWorldWidth, portalWorldHeight);
+            const material = (() => {
+              const shaderUniforms = THREE.UniformsUtils.clone(PORTAL_SHADER.uniforms);
+              const shaderMaterial = new THREE.ShaderMaterial({
+                uniforms: shaderUniforms,
+                vertexShader: PORTAL_SHADER.vertexShader,
+                fragmentShader: PORTAL_SHADER.fragmentShader,
+              });
+              shaderMaterial.uniforms.map.value = renderTarget.texture;
+              // shaderMaterial.polygonOffset = true;
+              // shaderMaterial.polygonOffsetFactor = -1;
+              return shaderMaterial;
+            })();
+            const mesh = new THREE.Mesh(geometry, material);
+            return mesh;
           })();
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.position.set(0, portalWorldHeight/2, -1);
+          mesh.add(innerMesh);
+
+          const outerMesh = (() => {
+            const geometry = (() => {
+              const width = portalWorldWidth;
+              const height = portalWorldHeight;
+              const border = portalBorderWorldWidth;
+
+              const leftGeometry = new THREE.BoxBufferGeometry(border, height, border);
+              leftGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(-(width / 2) - (border / 2), 0, -(border / 2)));
+
+              const rightGeometry = new THREE.BoxBufferGeometry(border, height, border);
+              rightGeometry.applyMatrix(new THREE.Matrix4().makeTranslation((width / 2) + (border / 2), 0, -(border / 2)));
+
+              const topGeometry = new THREE.BoxBufferGeometry(width + (border * 2), border, border);
+              topGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(0, (height / 2) + (border / 2), -(border / 2)));
+
+              const bottomGeometry = new THREE.BoxBufferGeometry(width + (border * 2), border, border);
+              bottomGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(0, -(height / 2) - (border / 2), -(border / 2)));
+
+              const backGeometry = new THREE.PlaneBufferGeometry(width, height);
+              backGeometry.applyMatrix(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, -1))));
+
+              const bufferGeometry = concatBufferGeometry([
+                leftGeometry,
+                rightGeometry,
+                topGeometry,
+                bottomGeometry,
+                backGeometry,
+              ]);
+              return bufferGeometry;
+            })();
+
+            const material = new THREE.MeshLambertMaterial({
+              color: 0xffa726,
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            return mesh;
+          })();
+          mesh.add(outerMesh);
+
+          mesh.renderTarget = renderTarget;
+
           return mesh;
         })();
         scene.add(portalMesh);
@@ -324,7 +487,7 @@
           const materials = facePlanesMeshes[i].facePlanes.map(mesh => mesh.material);
           const skyboxMesh = new THREE.Mesh(geometry, materials);
           skyboxMesh.layers.set(i + 1);
-          scene.add(skyboxMesh);
+          portalScene.add(skyboxMesh);
 
           skyboxMeshes[i] = skyboxMesh;
         }
@@ -379,6 +542,8 @@
       }
 
 			function render() {
+
+        renderer.render(portalScene, camera, portalMesh.renderTarget);
 
 				renderer.render( scene, camera );
 
