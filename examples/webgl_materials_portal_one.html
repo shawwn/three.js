@@ -130,7 +130,7 @@
       };
 
 			var stats;
-			var camera, scene, material, renderer;
+			var camera, scene, portalScene, material, renderer;
 
       const eyeSeparation = 0.0625;
       const cameraSize = 2048;
@@ -270,6 +270,8 @@
 				scene = new THREE.Scene();
         scene.background = new THREE.Color(0x29b6f6);
 
+        portalScene = new THREE.Scene();
+
 				renderer = new THREE.WebGLRenderer();
 				renderer.setPixelRatio( window.devicePixelRatio );
 				renderer.setSize( window.innerWidth, window.innerHeight );
@@ -395,49 +397,8 @@
           facePlanesMeshes[i] = facePlanesMesh;
         }
 
-        portalMesh = (() => {
-          const mesh = new THREE.Group();
-          mesh.position.set(0, portalWorldHeight/2, -1);
-
-          const innerMesh = (() => {
-            const geometry = new THREE.PlaneBufferGeometry(portalWorldWidth, portalWorldHeight);
-            const material = new THREE.MeshBasicMaterial({
-              color: 0xFF0000,
-              // colorWrite: false,
-              depthWrite: false,
-            });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.onBeforeRender = () => {
-              const gl = renderer.getContext();
-              renderer.state.buffers.stencil.setTest(true);
-              renderer.state.buffers.stencil.setFunc(gl.ALWAYS, 0, 0xFF);
-              renderer.state.buffers.stencil.setOp(gl.INCR, gl.INCR, gl.INCR);
-            };
-            mesh.onAfterRender = () => {
-              const gl = renderer.getContext();
-              // renderer.state.buffers.stencil.setTest(false);
-            };
-            return mesh;
-          })();
-          mesh.add(innerMesh);
-
-          const skyboxMesh = (() => {
-            const geometry = new THREE.BoxBufferGeometry(100, 100, 100);
-            const materials = facePlanesMeshes[0].faceMaterials;
-            const mesh = new THREE.Mesh(geometry, materials);
-            mesh.onBeforeRender = () => {
-              const gl = renderer.getContext();
-              renderer.state.buffers.stencil.setTest(true);
-              renderer.state.buffers.stencil.setFunc(gl.NOTEQUAL, 0, 0xFF);
-              renderer.state.buffers.stencil.setOp(gl.KEEP, gl.KEEP, gl.KEEP);
-            };
-            mesh.onAfterRender = () => {
-              const gl = renderer.getContext();
-              renderer.state.buffers.stencil.setTest(false);
-            };
-            return mesh;
-          })();
-          mesh.add(skyboxMesh);
+        const frameMesh = (() => {
+          const mesh = new THREE.Object3D();
 
           const outerMesh = (() => {
             const geometry = (() => {
@@ -481,7 +442,57 @@
 
           return mesh;
         })();
-        scene.add(portalMesh);
+        frameMesh.position.set(0, portalWorldHeight/2, -1);
+        scene.add(frameMesh);
+
+        portalMesh = (() => {
+          const mesh = new THREE.Object3D();
+
+          const innerMesh = (() => {
+            const geometry = new THREE.PlaneBufferGeometry(portalWorldWidth, portalWorldHeight);
+            const material = new THREE.MeshBasicMaterial({
+              color: 0xFF0000,
+              colorWrite: false,
+              depthWrite: false,
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.onBeforeRender = () => {
+              const gl = renderer.getContext();
+              renderer.state.buffers.stencil.setTest(true);
+              renderer.state.buffers.stencil.setFunc(gl.ALWAYS, 0, 0xFF);
+              renderer.state.buffers.stencil.setOp(gl.INCR, gl.INCR, gl.INCR);
+            };
+            mesh.onAfterRender = () => {
+              // const gl = renderer.getContext();
+            };
+            return mesh;
+          })();
+          mesh.add(innerMesh);
+
+          const skyboxMesh = (() => {
+            const geometry = new THREE.BoxBufferGeometry(100, 100, 100);
+            const materials = facePlanesMeshes[0].faceMaterials;
+            const mesh = new THREE.Mesh(geometry, materials);
+            mesh.onBeforeRender = () => {
+              const gl = renderer.getContext();
+              renderer.state.buffers.stencil.setTest(true);
+              renderer.state.buffers.stencil.setFunc(gl.NOTEQUAL, 0, 0xFF);
+              renderer.state.buffers.stencil.setOp(gl.KEEP, gl.KEEP, gl.KEEP);
+            };
+            mesh.onAfterRender = () => {
+              const gl = renderer.getContext();
+              renderer.state.buffers.stencil.setTest(false);
+            };
+            return mesh;
+          })();
+          mesh.add(skyboxMesh);
+
+          return mesh;
+        })();
+        portalMesh.position.copy(frameMesh.position);
+        portalMesh.quaternion.copy(frameMesh.quaternion);
+        portalMesh.scale.copy(frameMesh.scale);
+        portalScene.add(portalMesh);
 
         const ambientLight = new THREE.AmbientLight(0xFFFFFF, 0.5);
         scene.add(ambientLight);
@@ -542,6 +553,17 @@
 
 			function render() {
 				renderer.render(scene, camera);
+
+        renderer.autoClear = false;
+        if (renderer.vr.getDevice()) {
+          const [cameraL, cameraR] = renderer.vr.getCamera(camera).cameras;
+
+          renderer.render(portalScene, cameraL);
+          renderer.render(portalScene, cameraR);
+        } else {
+          renderer.render(portalScene, camera);
+        }
+        renderer.autoClear = true;
 			}
 
       setTimeout(() => {
