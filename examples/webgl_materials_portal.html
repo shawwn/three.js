@@ -265,7 +265,8 @@
 
 				camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 10 * 1024 );
 				camera.position.z = 2;
-        // camera.layers.enable(1);
+        camera.layers.enable(1);
+        camera.layers.enable(2);
 
         stereoCamera = new THREE.PerspectiveCamera();
         // stereoCamera.layers.enable(1);
@@ -364,7 +365,7 @@
 
         for (let i = 0; i < cubeCameras.length; i++) {
           const cubeCamera = new THREE.CubeCamera( 0.1, 10 * 1024, cameraSize );
-          cubeCamera.position.set((i === 0 ? -1 : 1) * eyeSeparation/2, 1, 1);
+          cubeCamera.position.set((i === 0 ? -1 : 1) * eyeSeparation/2, 1.5, 1);
           // cubeCamera.position.set(0, 1, 1);
           cubeCamera.renderTarget.texture.minFilter = THREE.LinearMipMapLinearFilter;
           cubeCamera.renderTarget.texture.format = THREE.RGBAFormat;
@@ -581,16 +582,21 @@
 
 			function render() {
         if (renderer.vr.getDevice()) {
+          const cameraVR = renderer.vr.getCamera(camera);
+          const [cameraL, cameraR] = cameraVR.cameras;
+
           skyboxMeshes[0].visible = true;
           // stereoCamera.matrixWorld.fromArray(renderer.vr.frameData.leftViewMatrix);
           // stereoCamera.projectionMatrix.fromArray(renderer.vr.frameData.leftProjectionMatrix);
-          renderer.render(portalScene, camera, portalMesh.renderTargets[0]);
+          cameraL.position.set(0, 0, 0);
+          renderer.render(portalScene, cameraL, portalMesh.renderTargets[0]);
           skyboxMeshes[0].visible = false;
 
           skyboxMeshes[1].visible = true;
           // stereoCamera.matrixWorld.fromArray(renderer.vr.frameData.rightViewMatrix);
           // stereoCamera.projectionMatrix.fromArray(renderer.vr.frameData.rightProjectionMatrix);
-          renderer.render(portalScene, camera, portalMesh.renderTargets[1]);
+          cameraR.position.set(0, 0, 0);
+          renderer.render(portalScene, cameraR, portalMesh.renderTargets[1]);
           skyboxMeshes[1].visible = false;
 
           renderer.setRenderTarget(null);
