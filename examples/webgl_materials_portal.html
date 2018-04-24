@@ -133,7 +133,7 @@
 			var camera, stereoCamera, scene, portalScene, material, renderer;
 
       const eyeSeparation = 0.0625;
-      const cameraSize = 512;
+      const cameraSize = 1024;
       const portalWorldWidth = 1;
       const portalWorldHeight = portalWorldWidth * 2;
       const portalBorderWorldWidth = portalWorldWidth * 0.1;
@@ -265,17 +265,17 @@
 
 				camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 10 * 1024 );
 				camera.position.z = 2;
-        camera.layers.enable(1);
+        // camera.layers.enable(1);
 
-        stereoCamera = new THREE.StereoCamera();
-        stereoCamera.eyeSep = eyeSeparation;
+        stereoCamera = new THREE.PerspectiveCamera();
+        // stereoCamera.layers.enable(1);
+        // stereoCamera.layers.enable(2);
+        stereoCamera.matrixAutoUpdate = false;
 
 				scene = new THREE.Scene();
         scene.background = new THREE.Color(0x29b6f6);
 
         portalScene = new THREE.Scene();
-
-				initScene();
 
 				renderer = new THREE.WebGLRenderer();
 				renderer.setPixelRatio( window.devicePixelRatio );
@@ -283,8 +283,10 @@
 				renderer.vr.enabled = true;
 				container.appendChild( renderer.domElement );
 
-				renderer.gammaInput = true;
-				renderer.gammaOutput = true;
+				// renderer.gammaInput = true;
+				// renderer.gammaOutput = true;
+
+				initScene();
 
 				var controls = new THREE.OrbitControls( camera, renderer.domElement );
 
@@ -363,8 +365,9 @@
         for (let i = 0; i < cubeCameras.length; i++) {
           const cubeCamera = new THREE.CubeCamera( 0.1, 10 * 1024, cameraSize );
           cubeCamera.position.set((i === 0 ? -1 : 1) * eyeSeparation/2, 1, 1);
+          // cubeCamera.position.set(0, 1, 1);
           cubeCamera.renderTarget.texture.minFilter = THREE.LinearMipMapLinearFilter;
-          cubeCamera.renderTarget.format = THREE.RGBAFormat;
+          cubeCamera.renderTarget.texture.format = THREE.RGBAFormat;
           scene.add(cubeCamera);
 
           cubeCameras[i] = cubeCamera;
@@ -372,10 +375,9 @@
 
         for (let i = 0; i < facePlanesMeshes.length; i++) {
           const facePlanesMesh = new THREE.Object3D();
-          facePlanesMesh.facePlanes = Array(6);
+          facePlanesMesh.faceMaterials = Array(6);
 
-          for (let j = 0; j < facePlanesMesh.facePlanes.length; j++) {
-            const geometry = new THREE.PlaneBufferGeometry(1, 1);
+          for (let j = 0; j < facePlanesMesh.faceMaterials.length; j++) {
             const texture = new THREE.DataTexture(
               new Uint8Array(cameraSize * cameraSize * 4),
               cameraSize,
@@ -388,17 +390,12 @@
               THREE.LinearFilter,
               THREE.LinearFilter
             );
-            texture.needsUpdate = true;
             const material = new THREE.MeshBasicMaterial({
               map: texture,
               side: THREE.DoubleSide,
             });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.x = 0.5 - 6/2 + i;
-            mesh.position.y = 0.5;
-            facePlanesMesh.add(mesh);
 
-            facePlanesMesh.facePlanes[j] = mesh;
+            facePlanesMesh.faceMaterials[j] = material;
           }
 
           facePlanesMeshes[i] = facePlanesMesh;
@@ -408,33 +405,65 @@
           const mesh = new THREE.Object3D();
           mesh.position.set(0, portalWorldHeight/2, -1);
 
-          const innerMeshes = [null, null];
-          for (let i = 0; i < innerMeshes.length; i++) {
-            const renderTarget = new THREE.WebGLRenderTarget(portalWidth, portalHeight, {
+          const _getRenderTargetSize = () => {
+            const device = renderer.vr.getDevice();
+            if (device) {
+              const eyeParameters = device.getEyeParameters('left');
+              return {
+                width: eyeParameters.renderWidth,
+                height: eyeParameters.renderHeight,
+              };
+            } else {
+              const rendererSize = renderer.getSize();
+              const rendererPixelRatio = renderer.getPixelRatio();
+              return {
+                width: rendererSize.width * rendererPixelRatio,
+                height: rendererSize.height * rendererPixelRatio,
+              };
+            }
+          };
+
+          const _makeRenderTarget = () => {
+            const renderTargetSize = _getRenderTargetSize();
+            const renderTarget = new THREE.WebGLRenderTarget(renderTargetSize.width, renderTargetSize.height, {
               minFilter: THREE.NearestFilter,
               magFilter: THREE.NearestFilter,
               format: THREE.RGBAFormat,
             });
+            renderTarget.updateSize = () => {
+              const renderTargetSize = _getRenderTargetSize();
+              renderTarget.setSize(renderTargetSize.width, renderTargetSize.height);
+            };
+            return renderTarget;
+          };
+          const renderTargets = [
+            _makeRenderTarget(),
+            _makeRenderTarget(),
+          ];
+          mesh.renderTargets = renderTargets;
 
+          const _makeInnerMesh = renderTarget => {
             const geometry = new THREE.PlaneBufferGeometry(portalWorldWidth, portalWorldHeight);
             const material = (() => {
-              const shaderUniforms = THREE.UniformsUtils.clone(PORTAL_SHADER.uniforms);
-              const shaderMaterial = new THREE.ShaderMaterial({
-                uniforms: shaderUniforms,
+              const uniforms = THREE.UniformsUtils.clone(PORTAL_SHADER.uniforms);
+              const material = new THREE.ShaderMaterial({
+                uniforms,
                 vertexShader: PORTAL_SHADER.vertexShader,
                 fragmentShader: PORTAL_SHADER.fragmentShader,
               });
-              shaderMaterial.uniforms.map.value = renderTarget.texture;
-              // shaderMaterial.polygonOffset = true;
-              // shaderMaterial.polygonOffsetFactor = -1;
-              return shaderMaterial;
+              material.uniforms.map.value = renderTarget.texture;
+              // material.polygonOffset = true;
+              // material.polygonOffsetFactor = -1;
+              return material;
             })();
-            const innerMesh = new THREE.Mesh(geometry, material);
+            const mesh = new THREE.Mesh(geometry, material);
+            return mesh;
+          };
+          const innerMeshes = renderTargets.map(renderTarget => _makeInnerMesh(renderTarget));
+          for (let i = 0; i < innerMeshes.length; i++) {
+            const innerMesh = innerMeshes[i];
             innerMesh.layers.set(i + 1);
-            innerMesh.renderTarget = renderTarget;
             mesh.add(innerMesh);
-
-            innerMeshes[i] = innerMesh;
           }
           mesh.innerMeshes = innerMeshes;
 
@@ -491,9 +520,10 @@
 
         for (let i = 0; i < skyboxMeshes.length; i++) {
           const geometry = new THREE.BoxBufferGeometry(100, 100, 100);
-          const materials = facePlanesMeshes[i].facePlanes.map(mesh => mesh.material);
+          const materials = facePlanesMeshes[i].faceMaterials;
           const skyboxMesh = new THREE.Mesh(geometry, materials);
-          skyboxMesh.layers.set(i + 1);
+          // skyboxMesh.layers.set(i + 1);
+          skyboxMesh.visible = false;
           portalScene.add(skyboxMesh);
 
           skyboxMeshes[i] = skyboxMesh;
@@ -537,6 +567,7 @@
 				requestAnimationFrame( animate );
 
 				render();
+
 				stats.update();
 
 			}
@@ -549,10 +580,31 @@
       }
 
 			function render() {
+        if (renderer.vr.getDevice()) {
+          skyboxMeshes[0].visible = true;
+          // stereoCamera.matrixWorld.fromArray(renderer.vr.frameData.leftViewMatrix);
+          // stereoCamera.projectionMatrix.fromArray(renderer.vr.frameData.leftProjectionMatrix);
+          renderer.render(portalScene, camera, portalMesh.renderTargets[0]);
+          skyboxMeshes[0].visible = false;
 
-        stereoCamera.update(camera);
-        renderer.render(portalScene, stereoCamera.cameraL, portalMesh.innerMeshes[0].renderTarget);
-        renderer.render(portalScene, stereoCamera.cameraR, portalMesh.innerMeshes[1].renderTarget);
+          skyboxMeshes[1].visible = true;
+          // stereoCamera.matrixWorld.fromArray(renderer.vr.frameData.rightViewMatrix);
+          // stereoCamera.projectionMatrix.fromArray(renderer.vr.frameData.rightProjectionMatrix);
+          renderer.render(portalScene, camera, portalMesh.renderTargets[1]);
+          skyboxMeshes[1].visible = false;
+
+          renderer.setRenderTarget(null);
+        } else {
+          skyboxMeshes[0].visible = true;
+          renderer.render(portalScene, camera, portalMesh.renderTargets[0]);
+          skyboxMeshes[0].visible = false;
+
+          skyboxMeshes[1].visible = true;
+          renderer.render(portalScene, camera, portalMesh.renderTargets[1]);
+          skyboxMeshes[1].visible = false;
+
+          renderer.setRenderTarget(null);
+        }
 
 				renderer.render( scene, camera );
 
@@ -570,35 +622,43 @@
           skyboxMesh.visible = true;
           facePlanesMesh.visible = true;
 
-          for (let j = 0; j < facePlanesMesh.facePlanes.length; j++) {
-            const facePlane = facePlanesMesh.facePlanes[j];
-            const facePixelBuffer = facePlane.material.map.image.data;
+          for (let j = 0; j < facePlanesMesh.faceMaterials.length; j++) {
+            const faceMaterial = facePlanesMesh.faceMaterials[j];
+            const facePixelBuffer = faceMaterial.map.image.data;
 
             cubeCamera.renderTarget.activeCubeFace = j;
             renderer.readRenderTargetPixels(cubeCamera.renderTarget, 0, 0, cameraSize, cameraSize, tempPixelBuffer);
             _flipImage(cameraSize, cameraSize, 4, tempPixelBuffer, facePixelBuffer);
 
-            facePlane.material.map.needsUpdate = true;
+            faceMaterial.map.needsUpdate = true;
           }
         }
       }, 2000);
 
+      let displays = [];
+      navigator.getVRDisplays()
+        .then(newDisplays => {
+          displays = newDisplays;
+        })
+        .catch(err => {
+          console.warn(err);
+        });
+
       window.addEventListener('keypress', e => {
         if (e.keyCode === 112) { // F1
-          navigator.getVRDisplays()
-            .then(displays => {
-              if (displays.length > 0) {
-                const display = displays[0];
+          if (displays.length > 0) {
+            const display = displays[0];
+            display.requestPresent([{
+              source: renderer.domElement,
+            }])
+              .then(() => {
                 renderer.vr.setDevice(display);
 
-                display.requestPresent([{
-                  source: renderer.domElement,
-                }]);
-              }
-            })
-            .catch(err => {
-              console.warn(err);
-            });
+                portalMesh.renderTargets[0].updateSize();
+                portalMesh.renderTargets[1].updateSize();
+              });
+          }
+            
         }
       });
 		</script>
