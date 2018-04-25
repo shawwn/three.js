@@ -103,31 +103,6 @@
           }
         `,
       };
-      const PORTAL_SHADER = {
-        uniforms: {
-          map: {
-            type: 't',
-            value: null,
-          }
-        },
-        vertexShader: `\
-          varying vec4 texCoord;
-          void main() {
-            vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
-            vec4 position = projectionMatrix * mvPosition;
-            texCoord = position;
-            texCoord.xy = 0.5*texCoord.xy + 0.5*texCoord.w;
-            gl_Position = position;
-          }
-        `,
-        fragmentShader: `\
-          uniform sampler2D map;
-          varying vec4 texCoord;
-          void main() {
-            gl_FragColor = texture2DProj(map, texCoord);
-          }
-        `,
-      };
 
 			var stats;
 			var camera, scene, material, renderer;
