@@ -276,16 +276,6 @@
 
 			function initScene() {
         const extrusionMesh = (() => {
-          var shader = THREE.ParallaxShader;
-          var uniforms = THREE.UniformsUtils.clone( shader.uniforms );
-          var parameters = {
-            fragmentShader: shader.fragmentShader,
-            vertexShader: shader.vertexShader,
-            uniforms: uniforms
-          };
-
-          var textureLoader = new THREE.TextureLoader();
-
           const material = (() => {
             const uniforms = THREE.UniformsUtils.clone(EXTRUSION_SHADER.uniforms);
             const material = new THREE.ShaderMaterial({
@@ -296,6 +286,7 @@
             return material;
           })();
 
+          var textureLoader = new THREE.TextureLoader();
           material.uniforms.map.value = textureLoader.load('home/home.png');
           material.uniforms.bumpMap.value = (() => {
             const texture = new THREE.DataTexture(
