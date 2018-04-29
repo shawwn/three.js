@@ -338,7 +338,7 @@
 
           for (let j = 0; j < facePlanesMesh.faceMaterials.length; j++) {
             const texture = new THREE.DataTexture(
-              new Uint8Array(cameraSize * cameraSize * 4),
+              new Uint8Array(new ArrayBuffer(cameraSize * cameraSize * 4)),
               cameraSize,
               cameraSize,
               THREE.RGBAFormat,
