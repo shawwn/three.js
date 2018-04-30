@@ -110,6 +110,11 @@
         navigator.getVRDisplays()
           .then(newDisplays => {
             displays = newDisplays;
+
+            const presentingDisplay = displays.find(display => display.isPresenting);
+            if (presentingDisplay) {
+              renderer.vr.setDevice(presentingDisplay);
+            }
           })
           .catch(err => {
             console.warn(err);
