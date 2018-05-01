@@ -41,6 +41,7 @@
     <script src="js/loaders/OBJLoader.js"></script>
 		<script>
       const NUM_POSITIONS_CHUNK = 150 * 1024;
+      const GRAB_DISTANCE = 0.1;
 
       const camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 10 * 1024 );
       camera.position.z = 1;
@@ -64,6 +65,8 @@
       directionalLight.position.set(1, 1, 1);
       scene.add(directionalLight);
 
+      let lightsaberMesh = null;
+
       const controllerMeshes = [null, null];
       for (let i = 0; i < controllerMeshes.length; i++) {
         const controllerMesh = new THREE.Object3D();
@@ -72,6 +75,8 @@
           new THREE.Vector3(0, 0, -1),
           new THREE.Vector3(0, -1, -1)
         );
+
+        controllerMesh.lastGrabbed = false;
 
         scene.add(controllerMesh);
         controllerMeshes[i] = controllerMesh;
@@ -244,7 +249,7 @@
         img.crossOrigin = 'Anonymous';
         img.src = 'lightsaber/lightsaber.png';
         img.onload = () => {
-          const lightsaberMesh = (() => {
+          lightsaberMesh = (() => {
             const pixelSize = 0.01;
 
             const imageData = _getImageData(img);
@@ -254,6 +259,7 @@
             const material = pixelMaterial;
             
             const mesh = new THREE.Mesh(geometry, material);
+            mesh.grabIndex = -1;
             return mesh;
           })();
           scene.add(lightsaberMesh);
@@ -283,7 +289,47 @@
             }
           }
         };
+        const _updateGrab = () => {
+          if (lightsaberMesh) {
+            const gamepads = navigator.getGamepads();
+            for (let i = 0; i < gamepads.length; i++) {
+              const gamepad = gamepads[i];
+              if (gamepad) {
+                const controllerMesh = controllerMeshes[i];
+
+                const grabbed = gamepad.buttons[2].pressed;
+                const {lastGrabbed} = controllerMesh;
+
+                if (grabbed && !lastGrabbed && lightsaberMesh.grabIndex === -1) {
+                  const distance = controllerMesh.position.distanceTo(lightsaberMesh.position);
+                  if (distance < GRAB_DISTANCE) {
+                    lightsaberMesh.grabIndex = i;
+                  }
+                } else if (lastGrabbed && !grabbed && lightsaberMesh.grabIndex === i) {
+                  const distance = controllerMesh.position.distanceTo(lightsaberMesh.position);
+                  if (distance < GRAB_DISTANCE) {
+                    lightsaberMesh.grabIndex = -1;
+                  }
+                }
+
+                controllerMesh.lastGrabbed = grabbed;
+              }
+            }
+          }
+        };
+        const _updateLightsaber = () => {
+          if (lightsaberMesh) {
+            if (lightsaberMesh.grabIndex !== -1) {
+              const controllerMesh = controllerMeshes[lightsaberMesh.grabIndex];
+              lightsaberMesh.position.copy(controllerMesh.position);
+              lightsaberMesh.quaternion.copy(controllerMesh.quaternion);
+              lightsaberMesh.updateMatrixWorld();
+            }
+          }
+        };
         _updateControllers();
+        _updateGrab();
+        _updateLightsaber();
 
 				renderer.render(scene, camera);
 
