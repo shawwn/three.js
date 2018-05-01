@@ -116,6 +116,7 @@
       (() => {
         const graphImg = new Image();
         graphImg.src = 'lightsaber/graphy.png';
+        graphImg.crossOrigin = 'Anonymous';
         graphImg.onload = () => {
           const floorMesh = (() => {
             const geometry = new THREE.PlaneBufferGeometry(FLOOR_SIZE, FLOOR_SIZE)
