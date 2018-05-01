@@ -43,14 +43,9 @@
       const NUM_POSITIONS_CHUNK = 150 * 1024;
       const GRAB_DISTANCE = 0.1;
       const pixelSize = 0.01;
-      const localTransformRotationQuaterion = new THREE.Quaternion().setFromAxisAngle(
-        new THREE.Vector3(0, 0, 1),
-        Math.PI / 4
-      ).premultiply(
-        new THREE.Quaternion().setFromUnitVectors(
-          new THREE.Vector3(0, 1, 0),
-          new THREE.Vector3(0, 0, -1)
-        )
+      const localTransformRotationQuaterion = new THREE.Quaternion().setFromUnitVectors(
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(0, 0, -1)
       );
       const localVector = new THREE.Vector3();
 
@@ -255,19 +250,70 @@
           vertexColors: THREE.FaceColors,
           shininess: 0,
         });
+        const bladeMaterial = new THREE.MeshBasicMaterial({
+          color: 0xF44336,
+          flatShading: true,
+        });
 
         const img = new Image();
         img.crossOrigin = 'Anonymous';
         img.src = 'lightsaber/lightsaber.png';
         img.onload = () => {
           lightsaberMesh = (() => {
+            const mesh = new THREE.Object3D();
+
             const imageData = _getImageData(img);
             const {data: imageDataData} = imageData;
             const geometry = _makeImageDataGeometry(img.width, img.height, pixelSize, new THREE.Matrix4(), imageDataData);
             geometry.applyMatrix(new THREE.Matrix4().makeTranslation(0, (pixelSize / 2) - (pixelSize * 0.15), 0));
             const material = pixelMaterial;
-            
-            const mesh = new THREE.Mesh(geometry, material);
+            const itemMesh = new THREE.Mesh(geometry, material);
+            itemMesh.position.set(pixelSize, 0, 0);
+            itemMesh.quaternion.setFromAxisAngle(
+              new THREE.Vector3(0, 0, 1),
+              Math.PI / 4
+            );
+            mesh.add(itemMesh);
+
+            const bladeMesh = (() => {
+              const object = new THREE.Object3D();
+              // object.visible = false;
+
+              const coreMesh = (() => {
+                const geometry = new THREE.BoxBufferGeometry(0.02 * 0.9, 1, 0.02 * 0.9)
+                  .applyMatrix(new THREE.Matrix4().makeTranslation(0, (0.1 / 2) + 0.02 + (1 / 2), 0));
+                const material = bladeMaterial;
+
+                return new THREE.Mesh(geometry, material);
+              })();
+              object.add(coreMesh);
+              object.coreMesh = coreMesh;
+
+              const leftMesh = (() => {
+                const geometry = new THREE.BoxBufferGeometry(0.1, 0.02 * 0.9, 0.02 * 0.9)
+                  .applyMatrix(new THREE.Matrix4().makeTranslation(-(0.1 / 2) - (0.1 / 2), (0.1 / 2) + (0.02 / 2), 0));
+                const material = bladeMaterial;
+
+                return new THREE.Mesh(geometry, material);
+              })();
+              object.add(leftMesh);
+              object.leftMesh = leftMesh;
+
+              const rightMesh = (() => {
+                const geometry = new THREE.BoxBufferGeometry(0.1, 0.02 * 0.9, 0.02 * 0.9)
+                  .applyMatrix(new THREE.Matrix4().makeTranslation((0.1 / 2) + (0.1 / 2), (0.1 / 2) + (0.02 / 2), 0));
+                const material = bladeMaterial;
+
+                return new THREE.Mesh(geometry, material);
+              })();
+              object.add(rightMesh);
+              object.rightMesh = rightMesh;
+
+              return object;
+            })();
+            mesh.add(bladeMesh);
+            mesh.bladeMesh = bladeMesh;
+
             mesh.grabIndex = -1;
             return mesh;
           })();
@@ -330,15 +376,11 @@
           if (lightsaberMesh) {
             if (lightsaberMesh.grabIndex !== -1) {
               const controllerMesh = controllerMeshes[lightsaberMesh.grabIndex];
-              lightsaberMesh.position
-                .copy(controllerMesh.position)
-                .add(
-                  localVector.set(pixelSize, 0, 0)
-                    .applyQuaternion(controllerMesh.quaternion)
-                );
+              lightsaberMesh.position.copy(controllerMesh.position);
               lightsaberMesh.quaternion
                 .copy(controllerMesh.quaternion)
                 .multiply(localTransformRotationQuaterion);
+              lightsaberMesh.scale.copy(controllerMesh.scale);
               lightsaberMesh.updateMatrixWorld();
             }
           }
