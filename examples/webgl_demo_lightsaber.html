@@ -57,6 +57,7 @@
       const localVector = new THREE.Vector3();
       const localVector2 = new THREE.Vector3();
       const localQuaternion = new THREE.Quaternion();
+      const localQuaternion2 = new THREE.Quaternion();
 
       const camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 10 * 1024 );
       camera.position.y = 0.1;
@@ -706,12 +707,74 @@
             }
           }
         };
+        const _updateIntersection = () => {
+          if (lightsaberMesh) {
+            const {bladeMesh} = lightsaberMesh;
+
+            if (bladeMesh.visible) {
+              const {hitMesh} = lightsaberMesh;
+              hitMesh.visible = true;
+
+              const hitMeshRotation = hitMesh.getWorldQuaternion(localQuaternion);
+              const raycaster = new THREE.Raycaster();
+              raycaster.near = 0.01;
+              raycaster.far = 100000;
+
+              for (let i = 0; i < bullets.length; i++) {
+                const bullet = bullets[i];
+
+                if (!bullet.intersected) {
+                  const bulletPosition = localVector;
+                  const bulletRotation = localQuaternion2;
+                  const bulletScale = localVector2;
+                  bullet.matrixWorld.decompose(bulletPosition, bulletRotation, bulletScale);
+
+                  const ray = new THREE.Ray(
+                    bulletPosition.add(
+                      forwardVector.clone()
+                        .multiplyScalar(-0.05)
+                        .applyQuaternion(bulletRotation)
+                    ),
+                    forwardVector.clone()
+                      .multiplyScalar(0.1)
+                      .applyQuaternion(bulletRotation)
+                  );
+                  raycaster.ray = ray;
+                  const intersections = raycaster.intersectObject(hitMesh, true);
+
+                  if (intersections.length > 0) {
+                    const intersection = intersections[0];
+                    const {face} = intersection;
+                    const {normal} = face;
+                    const worldNormal = normal.clone().applyQuaternion(hitMeshRotation);
+                    /* const controllerLinearVelocity = lightsaberMesh.side !== null ? // XXX
+                      pose.getControllerLinearVelocity(lightsaberMesh.side)
+                    :
+                      zeroVector; */
+                    const reflectionVector = worldNormal.clone()
+                      // .add(controllerLinearVelocity.clone().multiplyScalar(2))
+                      .normalize();
+
+                    bullet.quaternion.setFromUnitVectors(
+                      forwardVector,
+                      reflectionVector
+                    );
+                    bullet.intersected = true;
+                  }
+                }
+              }
+
+              hitMesh.visible = false;
+            }
+          }
+        };
         _updateControllers();
         _updateLightsaberGrab();
         _updateLightsaberIgnition();
         _updateLightsaberPosition();
         _updateDrone();
         _updateBullets();
+        _updateIntersection();
 
 				renderer.render(scene, camera);
 
