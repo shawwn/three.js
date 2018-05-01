@@ -13,6 +13,7 @@ var files = {
 		"webgl_clipping_advanced",
 		"webgl_clipping_intersection",
 		"webgl_decals",
+    "webgl_demo_lightsaber",
     "webgl_demo_portal_one",
 		"webgl_demo_portal_two",
     "webgl_demo_sphere",

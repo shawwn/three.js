@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>three.js webgl - sphere demo</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				background:#000;
+				color:#fff;
+				padding:0;
+				margin:0;
+				font-weight: bold;
+				overflow:hidden;
+			}
+
+			a {	color: #ffffff;	}
+
+			#info {
+				position: absolute;
+				top: 0px; width: 100%;
+				color: #ffffff;
+				padding: 5px;
+				font-family:Monospace;
+				font-size:10px;
+				text-align:center;
+			}
+
+			#oldie {
+				background:rgb(200,100,0) !important;
+				color:#fff;
+			}
+
+			#vt { display:none }
+			#vt, #vt a { color:orange; }
+		</style>
+	</head>
+
+	<body>
+		<script src="../build/three.js"></script>
+		<script>
+      const NUM_POSITIONS_CHUNK = 150 * 1024;
+
+      const camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 10 * 1024 );
+      camera.position.z = 1;
+
+      const scene = new THREE.Scene();
+
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setPixelRatio( window.devicePixelRatio );
+      renderer.setSize( window.innerWidth, window.innerHeight );
+      renderer.sortObjects = false;
+      renderer.vr.enabled = true;
+
+      const container = document.createElement( 'div' );
+			document.body.appendChild( container );
+      container.appendChild(renderer.domElement);
+
+      const ambientLight = new THREE.AmbientLight(0x808080);
+      scene.add(ambientLight);
+
+      const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 1);
+      directionalLight.position.set(1, 1, 1);
+      scene.add(directionalLight);
+
+      const _getPixelVertices = (x, y, width, height, size) => {
+        const pixelVertices = _getPixelGeometryVertices(size);
+        for (let i = 0; i < CUBE_VERTICES; i += 3) {
+          pixelVertices[i] += (-(width / 2) + x + 1) * size;
+        }
+        for (let i = 1; i < CUBE_VERTICES; i += 3) {
+          pixelVertices[i] -= (-(height / 2) + y) * size;
+        }
+        for (let i = 2; i < CUBE_VERTICES; i += 3) {
+          pixelVertices[i] += size / 2;
+        }
+        return pixelVertices;
+      };
+      const _makeImageDataGeometry = (width, height, size, matrix, imageDataData) => {
+        const halfSize = size / 2;
+        const vertices = [
+          [-halfSize, halfSize, -halfSize], // 0 left up back
+          [halfSize, halfSize, -halfSize], // 1 right up back
+          [-halfSize, halfSize, halfSize], // 2 left up front
+          [halfSize, halfSize, halfSize], // 3 right up front
+          [-halfSize, -halfSize, -halfSize], // 4 left down back
+          [halfSize, -halfSize, -halfSize], // 5 right down back
+          [-halfSize, -halfSize, halfSize], // 6 left down front
+          [halfSize, -halfSize, halfSize], // 7 right down front
+        ];
+        const getPixelValue = (imageDataData, x, y, pixelData) => {
+          const index = (x + y * width) * 4;
+          pixelData[0] = imageDataData[index + 0];
+          pixelData[1] = imageDataData[index + 1];
+          pixelData[2] = imageDataData[index + 2];
+          pixelData[3] = imageDataData[index + 3];
+        };
+        const getPixelVertices = (x, y, left, right, top, bottom) => {
+          const result = vertices[2].concat(vertices[6]).concat(vertices[3]) // front
+            .concat(vertices[6]).concat(vertices[7]).concat(vertices[3])
+            .concat(vertices[1]).concat(vertices[5]).concat(vertices[0]) // back
+            .concat(vertices[5]).concat(vertices[4]).concat(vertices[0]);
+
+          if (left) {
+            result.push.apply(
+              result,
+              vertices[0].concat(vertices[4]).concat(vertices[2])
+                .concat(vertices[4]).concat(vertices[6]).concat(vertices[2])
+            );
+          }
+          if (right) {
+            result.push.apply(
+              result,
+              vertices[3].concat(vertices[7]).concat(vertices[1])
+                .concat(vertices[7]).concat(vertices[5]).concat(vertices[1])
+            );
+          }
+          if (top) {
+            result.push.apply(
+              result,
+              vertices[0].concat(vertices[2]).concat(vertices[1])
+                .concat(vertices[2]).concat(vertices[3]).concat(vertices[1])
+            );
+          }
+          if (bottom) {
+            result.push.apply(
+              result,
+              vertices[6].concat(vertices[4]).concat(vertices[7])
+                .concat(vertices[4]).concat(vertices[5]).concat(vertices[7])
+            );
+          }
+
+          const numPositions = result.length / 3;
+          const xOffset = (-(width / 2) + x) * size;
+          const yOffset = ((height / 2) - y) * size;
+          for (let i = 0; i < numPositions; i++) {
+            const baseIndex = i * 3;
+            result[baseIndex + 0] += xOffset;
+            result[baseIndex + 1] += yOffset;
+            result[baseIndex + 2] += size / 2;
+          }
+          return Float32Array.from(result);
+        };
+        const isSolidPixel = (x, y) => imageDataData[((x + y * width) * 4) + 3] >= 128;
+
+        const positions = new Float32Array(NUM_POSITIONS_CHUNK);
+        const colors = new Float32Array(NUM_POSITIONS_CHUNK);
+        let attributeIndex = 0;
+        const pixelData = Array(4);
+        for (let y = 0; y < height; y++) {
+          for (let x = 0; x < width; x++) {
+            getPixelValue(imageDataData, x, y, pixelData);
+
+            if (pixelData[3] >= 128) {
+              const newPositions = getPixelVertices(
+                x,
+                y,
+                !((x - 1) >= 0 && isSolidPixel(x - 1, y)),
+                !((x + 1) < width && isSolidPixel(x + 1, y)),
+                !((y - 1) >= 0 && isSolidPixel(x, y - 1)),
+                !((y + 1) < height && isSolidPixel(x, y + 1))
+              );
+              positions.set(newPositions, attributeIndex);
+
+              const numNewPositions = newPositions.length / 3;
+              const rFactor = pixelData[0] / 255;
+              const gFactor = pixelData[1] / 255;
+              const bFactor = pixelData[2] / 255;
+              for (let i = 0; i < numNewPositions; i++) {
+                const baseIndex = i * 3;
+                colors[attributeIndex + baseIndex + 0] = rFactor;
+                colors[attributeIndex + baseIndex + 1] = gFactor;
+                colors[attributeIndex + baseIndex + 2] = bFactor;
+              }
+
+              attributeIndex += newPositions.length;
+            }
+          }
+        }
+
+        const geometry = new THREE.BufferGeometry();
+        geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(positions.buffer, 0, attributeIndex), 3));
+        geometry.addAttribute('color', new THREE.BufferAttribute(new Float32Array(colors.buffer, 0, attributeIndex), 3));
+
+        const numPositions = attributeIndex / 3;
+        const dys = new Float32Array(numPositions * 2);
+        for (let i = 0; i < numPositions; i++) {
+          dys[(i * 2) + 0] = positions[(i * 3) + 0];
+          dys[(i * 2) + 1] = positions[(i * 3) + 2];
+        }
+
+        geometry.applyMatrix(matrix);
+
+        geometry.addAttribute('dy', new THREE.BufferAttribute(dys, 2));
+        geometry.addAttribute('zeroDy', new THREE.BufferAttribute(new Float32Array(dys.length), 2));
+        geometry.computeVertexNormals();
+
+        return geometry;
+      };
+
+      const _getImageData = img => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        return ctx.getImageData(0, 0, canvas.width, canvas.height);
+      };
+
+      (() => {
+        const pixelMaterial = new THREE.MeshPhongMaterial({
+          vertexColors: THREE.FaceColors,
+          shininess: 0,
+        });
+
+        const img = new Image();
+        img.src = 'lightsaber/lightsaber.png';
+        img.onload = () => {
+          const lightsaberMesh = (() => {
+            const pixelSize = 0.01;
+
+            const imageData = _getImageData(img);
+            const {data: imageDataData} = imageData;
+            const geometry = _makeImageDataGeometry(img.width, img.height, pixelSize, new THREE.Matrix4(), imageDataData);
+            geometry.applyMatrix(new THREE.Matrix4().makeTranslation(0, (pixelSize / 2) - (pixelSize * 0.15), 0));
+            const material = pixelMaterial;
+            
+            const mesh = new THREE.Mesh(geometry, material);
+            return mesh;
+          })();
+          scene.add(lightsaberMesh);
+        };
+        img.onerror = err => {
+          console.warn(err.stack);
+        };
+      })();
+
+      const position = new THREE.Vector3();
+      const velocity = new THREE.Vector3();
+      let lastTime = Date.now();
+			function render() {
+        const currentTime = Date.now();
+        const timePassed = Math.max(currentTime - lastTime, 1);
+
+        // XXX
+
+				renderer.render(scene, camera);
+
+        lastTime = currentTime;
+			}
+
+      function animate() {
+				requestAnimationFrame(animate);
+				render();
+			}
+			animate();
+
+      let displays = [];
+      if (navigator.getVRDisplays) {
+        navigator.getVRDisplays()
+          .then(newDisplays => {
+            displays = newDisplays;
+
+            const presentingDisplay = displays.find(display => display.isPresenting);
+            if (presentingDisplay) {
+              renderer.vr.setDevice(presentingDisplay);
+            }
+          })
+          .catch(err => {
+            console.warn(err);
+          });
+      }
+
+      window.addEventListener('resize', e => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+      window.addEventListener('keypress', e => {
+        if (e.keyCode === 112) { // F1
+          if (displays.length > 0) {
+            const display = displays[0];
+            display.requestPresent([{
+              source: renderer.domElement,
+            }])
+              .then(() => {
+                renderer.vr.setDevice(display);
+              });
+          }
+        }
+      });
+		</script>
+
+	</body>
+</html>
