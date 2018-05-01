@@ -42,6 +42,17 @@
 		<script>
       const NUM_POSITIONS_CHUNK = 150 * 1024;
       const GRAB_DISTANCE = 0.1;
+      const pixelSize = 0.01;
+      const localTransformRotationQuaterion = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(0, 0, 1),
+        Math.PI / 4
+      ).premultiply(
+        new THREE.Quaternion().setFromUnitVectors(
+          new THREE.Vector3(0, 1, 0),
+          new THREE.Vector3(0, 0, -1)
+        )
+      );
+      const localVector = new THREE.Vector3();
 
       const camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 10 * 1024 );
       camera.position.z = 1;
@@ -250,8 +261,6 @@
         img.src = 'lightsaber/lightsaber.png';
         img.onload = () => {
           lightsaberMesh = (() => {
-            const pixelSize = 0.01;
-
             const imageData = _getImageData(img);
             const {data: imageDataData} = imageData;
             const geometry = _makeImageDataGeometry(img.width, img.height, pixelSize, new THREE.Matrix4(), imageDataData);
@@ -321,8 +330,15 @@
           if (lightsaberMesh) {
             if (lightsaberMesh.grabIndex !== -1) {
               const controllerMesh = controllerMeshes[lightsaberMesh.grabIndex];
-              lightsaberMesh.position.copy(controllerMesh.position);
-              lightsaberMesh.quaternion.copy(controllerMesh.quaternion);
+              lightsaberMesh.position
+                .copy(controllerMesh.position)
+                .add(
+                  localVector.set(pixelSize, 0, 0)
+                    .applyQuaternion(controllerMesh.quaternion)
+                );
+              lightsaberMesh.quaternion
+                .copy(controllerMesh.quaternion)
+                .multiply(localTransformRotationQuaterion);
               lightsaberMesh.updateMatrixWorld();
             }
           }
