@@ -43,11 +43,18 @@
       const NUM_POSITIONS_CHUNK = 150 * 1024;
       const GRAB_DISTANCE = 0.1;
       const pixelSize = 0.01;
+      const BULLET_RATE = 200;
+      const BULLET_SPEED = 0.002;
+      const BULLET_TTL = 10 * 1000;
+      const DRONE_DISTANCE = 3;
+      const forwardVector = new THREE.Vector3(0, 0, -1);
       const localTransformRotationQuaterion = new THREE.Quaternion().setFromUnitVectors(
         new THREE.Vector3(0, 1, 0),
         new THREE.Vector3(0, 0, -1)
       );
       const localVector = new THREE.Vector3();
+      const localVector2 = new THREE.Vector3();
+      const localQuaternion = new THREE.Quaternion();
 
       const camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 10 * 1024 );
       camera.position.z = 1;
@@ -412,6 +419,35 @@
       })();
       scene.add(droneMesh);
 
+      const bulletGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.1);
+      const bulletMaterial = new THREE.MeshBasicMaterial({
+        color: 0x2196F3,
+        flatShading: true,
+      });
+      const _makeBulletMesh = () => {
+        const geometry = bulletGeometry;
+        const material = bulletMaterial;
+
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.startTime = Date.now();
+        mesh.lastTime = mesh.lastTime;
+        mesh.intersected = false;
+        return mesh;
+      };
+
+      const droneState = (() => {
+        const dronePosition = droneMesh.position.clone();
+        const now = Date.now();
+        return {
+          direction: forwardVector.clone(),
+          startPosition: dronePosition,
+          endPosition: dronePosition,
+          startTime: now,
+          endTime: now,
+        };
+      })();
+      const bullets = [];
+
       const position = new THREE.Vector3();
       const velocity = new THREE.Vector3();
       let lastTime = Date.now();
@@ -503,10 +539,128 @@
             }
           }
         };
+        const _updateDrone = () => {
+          const _updateDroneMesh = () => {
+            const _updateDroneMove = () => {
+              if (currentTime >= droneState.endTime) {
+                const _getNearbyDirection = oldDirection => {
+                  for (;;) {
+                    const randomDirection = new THREE.Vector3(-0.5 + Math.random(), (-0.5 + Math.random()) * 0.2, -0.5 + Math.random()).normalize();
+
+                    if (randomDirection.distanceTo(oldDirection) <= 1.5) {
+                      return randomDirection;
+                    }
+                  }
+                };
+
+                droneState.direction = _getNearbyDirection(droneState.direction);
+                droneState.startPosition = droneMesh.position.clone();
+                droneState.endPosition = camera.position.clone().add(
+                  forwardVector.clone()
+                    .multiplyScalar(DRONE_DISTANCE)
+                    .applyQuaternion(new THREE.Quaternion().setFromUnitVectors(
+                      forwardVector,
+                      droneState.direction
+                    ))
+                );
+                droneState.startTime = currentTime;
+                droneState.endTime = currentTime + ((0.5 + (Math.random() * 0.5)) * 2000);
+              }
+
+              const {startPosition, endPosition, startTime, endTime} = droneState;
+              const newPosition = startPosition.clone().add(
+                endPosition.clone().sub(startPosition)
+                  .multiplyScalar((currentTime - startTime) / (endTime - startTime))
+              );
+              droneMesh.position.copy(newPosition);
+            };
+            const _updateDroneLook = () => {
+              droneMesh.lookAt(camera.position);
+            };
+            const _updateDroneMatrix = () => {
+              droneMesh.updateMatrixWorld();
+            };
+
+            _updateDroneMove();
+            _updateDroneLook();
+            _updateDroneMatrix();
+          };
+          const _addBullets = () => {
+            const timeDiff = currentTime - lastTime;
+
+            if (timeDiff >= BULLET_RATE) {
+              const {pupilMesh} = droneMesh;
+
+              const position = localVector;
+              const rotation = localQuaternion;
+              const scale = localVector2;
+              pupilMesh.matrixWorld.decompose(position, rotation, scale);
+
+              const bullet = _makeBulletMesh();
+              bullet.position.copy(position);
+              bullet.quaternion.copy(rotation);
+              bullet.scale.copy(scale);
+              scene.add(bullet);
+
+              bullet.updateMatrixWorld();
+
+              bullets.push(bullet);
+            }
+          };
+          const _resetDrone = () => {
+            droneMesh.position.set(0, 1.5, 0);
+            droneMesh.quaternion.copy(zeroQuaternion);
+            droneMesh.updateMatrixWorld();
+          };
+          const _resetBullets = () => {
+            if (bullets.length > 0) {
+              for (let i = 0; i < bullets.length; i++) {
+                const bullet = bullets[i];
+                scene.remove(bullet);
+              }
+              bullets.length = 0;
+            }
+          };
+
+          const _isLive = () => true; // XXX
+          if (_isLive()) {
+            _updateDroneMesh();
+            _addBullets();
+          } else {
+            _resetDrone();
+            _resetBullets();
+          }
+        };
+        const _updateBullets = () => {
+          const oldBullets = bullets.slice();
+          for (let i = 0; i < oldBullets.length; i++) {
+            const bullet = oldBullets[i];
+            const {startTime} = bullet;
+            const timeSinceStart = currentTime - startTime;
+
+            if (timeSinceStart < BULLET_TTL) {
+              const {lastTime} = bullet;
+              const timeDiff = currentTime - lastTime;
+
+              bullet.position.add(
+                new THREE.Vector3(0, 0, -BULLET_SPEED * timeDiff)
+                  .applyQuaternion(bullet.quaternion)
+              );
+              bullet.updateMatrixWorld();
+
+              bullet.lastTime = currentTime;
+            } else {
+              scene.remove(bullet);
+              bullets.splice(bullets.indexOf(bullet), 1);
+            }
+          }
+        };
         _updateControllers();
         _updateLightsaberGrab();
         _updateLightsaberIgnition();
         _updateLightsaberPosition();
+        _updateDrone();
+        _updateBullets();
 
 				renderer.render(scene, camera);
 
