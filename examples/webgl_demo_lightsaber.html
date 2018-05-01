@@ -214,6 +214,7 @@
         });
 
         const img = new Image();
+        img.crossOrigin = 'Anonymous';
         img.src = 'lightsaber/lightsaber.png';
         img.onload = () => {
           const lightsaberMesh = (() => {
