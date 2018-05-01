@@ -270,7 +270,20 @@
         const currentTime = Date.now();
         const timePassed = Math.max(currentTime - lastTime, 1);
 
-        // XXX
+        const _updateControllers = () => {
+          const gamepads = navigator.getGamepads();
+
+          for (let i = 0; i < gamepads.length; i++) {
+            const gamepad = gamepads[i];
+            if (gamepad) {
+              const controllerMesh = controllerMeshes[i];
+              controllerMesh.position.fromArray(gamepad.pose.position);
+              controllerMesh.quaternion.fromArray(gamepad.pose.orientation);
+              controllerMesh.updateMatrixWorld();
+            }
+          }
+        };
+        _updateControllers();
 
 				renderer.render(scene, camera);
 
