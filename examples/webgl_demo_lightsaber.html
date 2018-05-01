@@ -498,6 +498,7 @@
       const position = new THREE.Vector3();
       const velocity = new THREE.Vector3();
       let lastTime = Date.now();
+      let lastBulletTime = lastTime;
 			function render() {
         const currentTime = Date.now();
         const timePassed = Math.max(currentTime - lastTime, 1);
@@ -633,7 +634,7 @@
             _updateDroneMatrix();
           };
           const _addBullets = () => {
-            const timeDiff = currentTime - lastTime;
+            const timeDiff = currentTime - lastBulletTime;
 
             if (timeDiff >= BULLET_RATE) {
               const {pupilMesh} = droneMesh;
@@ -652,6 +653,8 @@
               bullet.updateMatrixWorld();
 
               bullets.push(bullet);
+
+              lastBulletTime = currentTime;
             }
           };
           const _resetDrone = () => {
