@@ -673,7 +673,7 @@
             }
           };
 
-          const _isLive = () => true; // XXX
+          const _isLive = () => Boolean(lightsaberMesh) && lightsaberMesh.grabIndex !== -1;
           if (_isLive()) {
             _updateDroneMesh();
             _addBullets();
