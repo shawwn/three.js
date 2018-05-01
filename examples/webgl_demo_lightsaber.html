@@ -254,6 +254,9 @@
           color: 0xF44336,
           flatShading: true,
         });
+        const whiteMaterial = new THREE.MeshBasicMaterial({
+          color: 0xFFFFFF,
+        });
 
         const img = new Image();
         img.crossOrigin = 'Anonymous';
@@ -314,7 +317,36 @@
             mesh.add(bladeMesh);
             mesh.bladeMesh = bladeMesh;
 
+            const hitMesh = (() => {
+              const geometry = new THREE.BoxBufferGeometry(0.1, 1, 0.1);
+              const material = whiteMaterial;
+
+              const mesh = new THREE.Mesh(geometry, material);
+              mesh.position.set(0, (0.1 / 2) + 0.02 + (1 / 2), 0);
+              mesh.visible = false;
+              return mesh;
+            })();
+            mesh.add(hitMesh);
+            mesh.hitMesh = hitMesh;
+
+            mesh.setValue = value => {
+              const {coreMesh, leftMesh, rightMesh} = bladeMesh;
+
+              coreMesh.scale.set(1, value, 1);
+              leftMesh.scale.set(value, 1, 1);
+              rightMesh.scale.set(value, 1, 1);
+              hitMesh.scale.set(1, value, 1);
+
+              coreMesh.updateMatrixWorld();
+              leftMesh.updateMatrixWorld();
+              rightMesh.updateMatrixWorld();
+              hitMesh.updateMatrixWorld();
+            };
+
             mesh.grabIndex = -1;
+            mesh.ignited = false;
+            mesh.value = 0;
+
             return mesh;
           })();
           scene.add(lightsaberMesh);
@@ -344,7 +376,7 @@
             }
           }
         };
-        const _updateGrab = () => {
+        const _updateLightsaberGrab = () => {
           if (lightsaberMesh) {
             const gamepads = navigator.getGamepads();
             for (let i = 0; i < gamepads.length; i++) {
@@ -372,7 +404,19 @@
             }
           }
         };
-        const _updateLightsaber = () => {
+        const _updateLightsaberIgnition = () => {
+          if (lightsaberMesh) {
+            if (lightsaberMesh.grabIndex !== -1) {
+              const gamepads = navigator.getGamepads();
+              const gamepad = gamepads[lightsaberMesh.grabIndex];
+              const triggered = gamepad.buttons[1].pressed;
+              lightsaberMesh.ignited = triggered;
+            } else {
+              lightsaberMesh.ignited = false;
+            }
+          }
+        };
+        const _updateLightsaberPosition = () => {
           if (lightsaberMesh) {
             if (lightsaberMesh.grabIndex !== -1) {
               const controllerMesh = controllerMeshes[lightsaberMesh.grabIndex];
@@ -383,11 +427,30 @@
               lightsaberMesh.scale.copy(controllerMesh.scale);
               lightsaberMesh.updateMatrixWorld();
             }
+
+            if (lightsaberMesh.ignited) {
+              lightsaberMesh.value = Math.min(lightsaberMesh.value + ((currentTime - lastTime) / 1000 * 25), 1);
+            } else {
+              lightsaberMesh.value = Math.max(lightsaberMesh.value - ((currentTime - lastTime) / 1000 * 2), 0);
+            }
+            const {bladeMesh} = lightsaberMesh;
+            if (lightsaberMesh.value < 0.001) {
+              if (bladeMesh.visible) {
+                bladeMesh.visible = false;
+              }
+            } else {
+              lightsaberMesh.setValue(lightsaberMesh.value);
+
+              if (!bladeMesh.visible) {
+                bladeMesh.visible = true;
+              }
+            }
           }
         };
         _updateControllers();
-        _updateGrab();
-        _updateLightsaber();
+        _updateLightsaberGrab();
+        _updateLightsaberIgnition();
+        _updateLightsaberPosition();
 
 				renderer.render(scene, camera);
 
