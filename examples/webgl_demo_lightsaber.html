@@ -39,6 +39,7 @@
 	<body>
 		<script src="../build/three.js"></script>
     <script src="js/loaders/OBJLoader.js"></script>
+    <script src="lightsaber/three-extra/SkyShader.js"></script>
 		<script>
       const FLOOR_SIZE = 20;
       const NUM_POSITIONS_CHUNK = 150 * 1024;
@@ -112,6 +113,40 @@
         controllerMeshes[0].add(object.clone());
         controllerMeshes[1].add(object.clone());
       });
+
+      const sky = (() => {
+        const sky = new THREE.Sky();
+        const {uniforms} = sky;
+        uniforms.turbidity.value = 10;
+        uniforms.rayleigh.value = 2;
+        uniforms.luminance.value = 1;
+        uniforms.mieCoefficient.value = 0.005;
+        uniforms.mieDirectionalG.value = 0.8;
+
+        sky.inclination = 0;
+        sky.azimuth = 0;
+
+        return sky;
+      })();
+      scene.add(sky.mesh);
+
+      const _updateSunIntensity = () => {
+        const DAY_NIGHT_SPEED = 100;
+        const sunDistance = 5000;
+        const cutoffAngle = Math.PI/1.95;
+        const steepness = 1.5;
+
+        sky.azimuth = (0.05 + (((Date.now() + 200000) / 1000) * DAY_NIGHT_SPEED / 100000)) % 1;
+        const theta = Math.PI * (sky.inclination - 0.5);
+        const phi = 2 * Math.PI * (sky.azimuth - 0.5);
+
+        const x = sunDistance * Math.cos(phi);
+        const y = sunDistance * Math.sin(phi) * Math.sin(theta);
+        const z = sunDistance * Math.sin(phi) * Math.cos(theta);
+
+        sky.uniforms.sunPosition.value.set(x, y, z);
+      };
+      _updateSunIntensity();
 
       (() => {
         const graphImg = new Image();
