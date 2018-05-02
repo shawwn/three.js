@@ -37,6 +37,7 @@
 	</head>
 
 	<body>
+    <canvas id=canvas></canvas>
 		<script src="../build/three.js"></script>
     <script src="js/loaders/OBJLoader.js"></script>
     <script src="lightsaber/three-extra/SkyShader.js"></script>
@@ -66,7 +67,12 @@
 
       const scene = new THREE.Scene();
 
-      const renderer = new THREE.WebGLRenderer();
+      const cancvas = document.getElementById('canvas');
+      canvas.width = innerWidth;
+      canvas.height = innerHeight;
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+      });
       renderer.setPixelRatio( window.devicePixelRatio );
       renderer.setSize( window.innerWidth, window.innerHeight );
       renderer.sortObjects = false;
@@ -847,13 +853,27 @@
       });
       window.addEventListener('keypress', e => {
         if (e.keyCode === 112) { // F1
-          if (displays.length > 0) {
-            const display = displays[0];
+          const display = displays.find(display =>
+            display.constructor.name === 'VRDisplay'
+          );
+          if (display) {
             display.requestPresent([{
-              source: renderer.domElement,
+              source: canvas,
             }])
               .then(() => {
                 renderer.vr.setDevice(display);
+              });
+          }
+        } else if (e.keyCode === 113) { // F2
+          const display = displays.find(display =>
+            display.constructor.name === 'MLDisplay'
+          );
+          if (display) {
+            display.requestPresent([{source: canvas}])
+              .then(() => {
+                renderer.vr.setDevice(display);
+
+                scene.remove(sky.mesh);
               });
           }
         }
