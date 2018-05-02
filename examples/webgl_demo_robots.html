@@ -716,7 +716,7 @@
                     source: renderer.domElement,
                   }]);
 
-                  terrainMesh.visible = false;
+                  // terrainMesh.visible = false;
                 }
               })
               .catch(err => {
@@ -964,7 +964,8 @@
           if (device.mesh && (device.mesh[0] || device.mesh[1] || device.mesh[2])) {
             const [positions, normals, indices] = device.mesh;
 
-            const updated = _loadTerrainMesh(robotTerrainMesh, {positions, normals, indices});
+            _loadTerrainMesh(terrainMesh, {positions, normals, indices});
+            _loadTerrainMesh(robotTerrainMesh, {positions, normals, indices});
             /* if (updated) {
               const roomMeshSize =
                 Uint32Array.BYTES_PER_ELEMENT + positions.byteLength +
