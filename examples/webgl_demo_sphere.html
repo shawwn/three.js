@@ -37,6 +37,7 @@
 	</head>
 
 	<body>
+    <canvas id=canvas></canvas>
 		<script src="../build/three.js"></script>
 		<script>
       const camera = new THREE.PerspectiveCamera( 90, window.innerWidth / window.innerHeight, 0.1, 10 * 1024 );
@@ -129,16 +130,32 @@
       });
       window.addEventListener('keypress', e => {
         if (e.keyCode === 112) { // F1
-          if (displays.length > 0) {
-            const display = displays[0];
+          const display = displays.find(display =>
+            display.constructor.name === 'VRDisplay'
+          );
+          if (display) {
             display.requestPresent([{
-              source: renderer.domElement,
+              source: canvas,
             }])
               .then(() => {
                 renderer.vr.setDevice(display);
               });
           }
-            
+        } else if (e.keyCode === 113) { // F2
+          const display = displays.find(display =>
+            display.constructor.name === 'MLDisplay'
+          );
+          if (display) {
+            display.requestPresent([{
+              source: canvas,
+            }])
+              .then(() => {
+                renderer.vr.setDevice(display);
+
+                scene.remove(sky.mesh);
+              });
+          }
+        }
         }
       });
 		</script>
