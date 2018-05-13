@@ -47,7 +47,7 @@
       const GRAB_DISTANCE = 210.1;
       const pixelSize = 0.01;
       const BULLET_RATE = 1000;
-      const BULLET_SPEED = 0.001;
+      const BULLET_SPEED = 0.005;
       const BULLET_TTL = 10 * 1000;
       const DRONE_DISTANCE = 8;
       const forwardVector = new THREE.Vector3(0, 0, -1);
@@ -515,7 +515,7 @@
       })();
       scene.add(droneMesh);
 
-      const bulletGeometry = new THREE.BoxBufferGeometry(0.01, 0.01, 0.1);
+      const bulletGeometry = new THREE.BoxBufferGeometry(0.04, 0.04, 0.4);
       const bulletMaterial = new THREE.MeshBasicMaterial({
         color: 0x2196F3,
         flatShading: true,
