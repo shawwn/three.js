@@ -348,10 +348,6 @@
           vertexColors: THREE.FaceColors,
           shininess: 0,
         });
-        const bladeMaterial = new THREE.MeshBasicMaterial({
-          color: 0xF44336,
-          flatShading: true,
-        });
         const whiteMaterial = new THREE.MeshBasicMaterial({
           color: 0xFFFFFF,
         });
@@ -360,7 +356,7 @@
         img.crossOrigin = 'Anonymous';
         img.src = 'lightsaber/lightsaber.png';
         img.onload = () => {
-          makeLightsaber = (() => {
+          makeLightsaber = (({bladeMaterial}) => {
             const mesh = new THREE.Object3D();
 
             const imageData = _getImageData(img);
@@ -449,7 +445,11 @@
           });
           for (let i = 0; i < lightsaberMeshes.length; i++) {
             if (!lightsaberMeshes[i]) {
-              lightsaberMeshes[i] = makeLightsaber();
+              const bladeMaterial = new THREE.MeshBasicMaterial({
+                color: (i === 0) ? 0xF44336 : 0x2196F3,
+                flatShading: true,
+              });
+              lightsaberMeshes[i] = makeLightsaber({bladeMaterial});
               scene.add(lightsaberMeshes[i]);
             }
           }
