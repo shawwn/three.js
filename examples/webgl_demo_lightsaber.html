@@ -44,7 +44,7 @@
 		<script>
       const FLOOR_SIZE = 20;
       const NUM_POSITIONS_CHUNK = 150 * 1024;
-      const GRAB_DISTANCE = 0.1;
+      const GRAB_DISTANCE = 210.1;
       const pixelSize = 0.01;
       const BULLET_RATE = 200;
       const BULLET_SPEED = 0.002;
@@ -568,7 +568,7 @@
               if (gamepad) {
                 const controllerMesh = controllerMeshes[i];
 
-                const grabbed = gamepad.buttons[2].pressed;
+                const grabbed = true; //gamepad.buttons[2].pressed;
                 const {lastGrabbed} = controllerMesh;
 
                 if (grabbed && !lastGrabbed && lightsaberMesh.grabIndex === -1) {
