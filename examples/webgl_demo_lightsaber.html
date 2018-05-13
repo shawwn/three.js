@@ -89,7 +89,7 @@
       directionalLight.position.set(1, 1, 1);
       scene.add(directionalLight);
 
-      let lightsaberMesh = null;
+      let lightsaberMeshes = [null, null];
 
       const controllerMeshes = [null, null];
       for (let i = 0; i < controllerMeshes.length; i++) {
@@ -360,7 +360,7 @@
         img.crossOrigin = 'Anonymous';
         img.src = 'lightsaber/lightsaber.png';
         img.onload = () => {
-          lightsaberMesh = (() => {
+          makeLightsaber = (() => {
             const mesh = new THREE.Object3D();
 
             const imageData = _getImageData(img);
@@ -446,8 +446,13 @@
             mesh.value = 0;
 
             return mesh;
-          })();
-          scene.add(lightsaberMesh);
+          });
+          for (let i = 0; i < lightsaberMeshes.length; i++) {
+            if (!lightsaberMeshes[i]) {
+              lightsaberMeshes[i] = makeLightsaber();
+              scene.add(lightsaberMeshes[i]);
+            }
+          }
         };
         img.onerror = err => {
           console.warn(err.stack);
@@ -560,73 +565,84 @@
             }
           }
         };
+        const _controllerToLightsaber = (controllerIdx) => {
+          for (let i = 0; i < lightsaberMeshes.length; i++) {
+            let lightsaberMesh = lightsaberMeshes[i];
+            if (lightsaberMesh) {
+              if (lightsaberMesh.grabIndex === controllerIdx) {
+                return i;
+              }
+            }
+          }
+        }
+
         const _updateLightsaberGrab = () => {
-          if (lightsaberMesh) {
-            const gamepads = navigator.getGamepads();
-            for (let i = 0; i < gamepads.length; i++) {
-              const gamepad = gamepads[i];
-              if (gamepad) {
-                const controllerMesh = controllerMeshes[i];
+          for (let i = 0; i < lightsaberMeshes.length; i++) {
+            let lightsaberMesh = lightsaberMeshes[i];
+            if (lightsaberMesh) {
+              const gamepads = navigator.getGamepads();
+              for (let j = 0; j < gamepads.length; j++) {
+                const gamepad = gamepads[j];
+                if (gamepad && _controllerToLightsaber(j) == null) {
+                  const controllerMesh = controllerMeshes[j];
 
-                const grabbed = true; //gamepad.buttons[2].pressed;
-                const {lastGrabbed} = controllerMesh;
-
-                if (grabbed && !lastGrabbed && lightsaberMesh.grabIndex === -1) {
-                  const distance = controllerMesh.position.distanceTo(lightsaberMesh.position);
-                  if (distance < GRAB_DISTANCE) {
-                    lightsaberMesh.grabIndex = i;
-                  }
-                } else if (lastGrabbed && !grabbed && lightsaberMesh.grabIndex === i) {
-                  const distance = controllerMesh.position.distanceTo(lightsaberMesh.position);
-                  if (distance < GRAB_DISTANCE) {
-                    lightsaberMesh.grabIndex = -1;
+                  if (lightsaberMesh.grabIndex === -1) {
+                    const distance = controllerMesh.position.distanceTo(lightsaberMesh.position);
+                    if (distance < GRAB_DISTANCE) {
+                      lightsaberMesh.grabIndex = j;
+                      console.log(`lightsaberMesh[${i}].grabIndex = ${j}`);
+                    }
                   }
                 }
-
-                controllerMesh.lastGrabbed = grabbed;
               }
             }
           }
         };
         const _updateLightsaberIgnition = () => {
-          if (lightsaberMesh) {
-            if (lightsaberMesh.grabIndex !== -1) {
-              const gamepads = navigator.getGamepads();
-              const gamepad = gamepads[lightsaberMesh.grabIndex];
-              const triggered = gamepad.buttons[1].pressed;
-              lightsaberMesh.ignited = triggered;
-            } else {
-              lightsaberMesh.ignited = false;
+          for (let i = 0; i < lightsaberMeshes.length; i++) {
+            let lightsaberMesh = lightsaberMeshes[i];
+            if (lightsaberMesh) {
+              if (lightsaberMesh.grabIndex !== -1) {
+                const gamepads = navigator.getGamepads();
+                const gamepad = gamepads[lightsaberMesh.grabIndex];
+                const triggered = gamepad.buttons[1].pressed;
+                lightsaberMesh.ignited = triggered;
+              } else {
+                lightsaberMesh.ignited = false;
+              }
             }
           }
         };
         const _updateLightsaberPosition = () => {
-          if (lightsaberMesh) {
-            if (lightsaberMesh.grabIndex !== -1) {
-              const controllerMesh = controllerMeshes[lightsaberMesh.grabIndex];
-              lightsaberMesh.position.copy(controllerMesh.position);
-              lightsaberMesh.quaternion
-                .copy(controllerMesh.quaternion)
-                .multiply(localTransformRotationQuaterion);
-              lightsaberMesh.scale.copy(controllerMesh.scale);
-              lightsaberMesh.updateMatrixWorld();
-            }
-
-            if (lightsaberMesh.ignited) {
-              lightsaberMesh.value = Math.min(lightsaberMesh.value + ((currentTime - lastTime) / 1000 * 25), 1);
-            } else {
-              lightsaberMesh.value = Math.max(lightsaberMesh.value - ((currentTime - lastTime) / 1000 * 2), 0);
-            }
-            const {bladeMesh} = lightsaberMesh;
-            if (lightsaberMesh.value < 0.001) {
-              if (bladeMesh.visible) {
-                bladeMesh.visible = false;
+          for (let i = 0; i < lightsaberMeshes.length; i++) {
+            let lightsaberMesh = lightsaberMeshes[i];
+            if (lightsaberMesh) {
+              if (lightsaberMesh.grabIndex !== -1) {
+                const controllerMesh = controllerMeshes[lightsaberMesh.grabIndex];
+                lightsaberMesh.position.copy(controllerMesh.position);
+                lightsaberMesh.quaternion
+                  .copy(controllerMesh.quaternion)
+                  .multiply(localTransformRotationQuaterion);
+                lightsaberMesh.scale.copy(controllerMesh.scale);
+                lightsaberMesh.updateMatrixWorld();
               }
-            } else {
-              lightsaberMesh.setValue(lightsaberMesh.value);
 
-              if (!bladeMesh.visible) {
-                bladeMesh.visible = true;
+              if (lightsaberMesh.ignited) {
+                lightsaberMesh.value = Math.min(lightsaberMesh.value + ((currentTime - lastTime) / 1000 * 25), 1);
+              } else {
+                lightsaberMesh.value = Math.max(lightsaberMesh.value - ((currentTime - lastTime) / 1000 * 2), 0);
+              }
+              const {bladeMesh} = lightsaberMesh;
+              if (lightsaberMesh.value < 0.001) {
+                if (bladeMesh.visible) {
+                  bladeMesh.visible = false;
+                }
+              } else {
+                lightsaberMesh.setValue(lightsaberMesh.value);
+
+                if (!bladeMesh.visible) {
+                  bladeMesh.visible = true;
+                }
               }
             }
           }
@@ -716,14 +732,8 @@
             }
           };
 
-          const _isLive = () => Boolean(lightsaberMesh) && lightsaberMesh.grabIndex !== -1;
-          if (_isLive()) {
-            _updateDroneMesh();
-            _addBullets();
-          } else {
-            //_resetDrone();
-            //_resetBullets();
-          }
+          _updateDroneMesh();
+          _addBullets();
         };
         const _updateBullets = () => {
           const oldBullets = bullets.slice();
@@ -750,63 +760,66 @@
           }
         };
         const _updateIntersection = () => {
-          if (lightsaberMesh) {
-            const {bladeMesh} = lightsaberMesh;
+          for (let i = 0; i < lightsaberMeshes.length; i++) {
+            let lightsaberMesh = lightsaberMeshes[i];
+            if (lightsaberMesh) {
+              const {bladeMesh} = lightsaberMesh;
 
-            if (bladeMesh.visible) {
-              const {hitMesh} = lightsaberMesh;
-              hitMesh.visible = true;
+              if (bladeMesh.visible) {
+                const {hitMesh} = lightsaberMesh;
+                hitMesh.visible = true;
 
-              const hitMeshRotation = hitMesh.getWorldQuaternion(localQuaternion);
-              const raycaster = new THREE.Raycaster();
-              raycaster.near = 0.01;
-              raycaster.far = 100000;
+                const hitMeshRotation = hitMesh.getWorldQuaternion(localQuaternion);
+                const raycaster = new THREE.Raycaster();
+                raycaster.near = 0.01;
+                raycaster.far = 100000;
 
-              for (let i = 0; i < bullets.length; i++) {
-                const bullet = bullets[i];
+                for (let j = 0; j < bullets.length; j++) {
+                  const bullet = bullets[j];
 
-                if (!bullet.intersected) {
-                  const bulletPosition = localVector;
-                  const bulletRotation = localQuaternion2;
-                  const bulletScale = localVector2;
-                  bullet.matrixWorld.decompose(bulletPosition, bulletRotation, bulletScale);
+                  if (!bullet.intersected) {
+                    const bulletPosition = localVector;
+                    const bulletRotation = localQuaternion2;
+                    const bulletScale = localVector2;
+                    bullet.matrixWorld.decompose(bulletPosition, bulletRotation, bulletScale);
 
-                  const ray = new THREE.Ray(
-                    bulletPosition.add(
+                    const ray = new THREE.Ray(
+                      bulletPosition.add(
+                        forwardVector.clone()
+                          .multiplyScalar(-0.05)
+                          .applyQuaternion(bulletRotation)
+                      ),
                       forwardVector.clone()
-                        .multiplyScalar(-0.05)
+                        .multiplyScalar(0.1)
                         .applyQuaternion(bulletRotation)
-                    ),
-                    forwardVector.clone()
-                      .multiplyScalar(0.1)
-                      .applyQuaternion(bulletRotation)
-                  );
-                  raycaster.ray = ray;
-                  const intersections = raycaster.intersectObject(hitMesh, true);
-
-                  if (intersections.length > 0) {
-                    const intersection = intersections[0];
-                    const {face} = intersection;
-                    const {normal} = face;
-                    const worldNormal = normal.clone().applyQuaternion(hitMeshRotation);
-                    /* const controllerLinearVelocity = lightsaberMesh.side !== null ? // XXX
-                      pose.getControllerLinearVelocity(lightsaberMesh.side)
-                    :
-                      zeroVector; */
-                    const reflectionVector = worldNormal.clone()
-                      // .add(controllerLinearVelocity.clone().multiplyScalar(2))
-                      .normalize();
-
-                    bullet.quaternion.setFromUnitVectors(
-                      forwardVector,
-                      reflectionVector
                     );
-                    bullet.intersected = true;
+                    raycaster.ray = ray;
+                    const intersections = raycaster.intersectObject(hitMesh, true);
+
+                    if (intersections.length > 0) {
+                      const intersection = intersections[0];
+                      const {face} = intersection;
+                      const {normal} = face;
+                      const worldNormal = normal.clone().applyQuaternion(hitMeshRotation);
+                      /* const controllerLinearVelocity = lightsaberMesh.side !== null ? // XXX
+                        pose.getControllerLinearVelocity(lightsaberMesh.side)
+                      :
+                        zeroVector; */
+                      const reflectionVector = worldNormal.clone()
+                        // .add(controllerLinearVelocity.clone().multiplyScalar(2))
+                        .normalize();
+
+                      bullet.quaternion.setFromUnitVectors(
+                        forwardVector,
+                        reflectionVector
+                      );
+                      bullet.intersected = true;
+                    }
                   }
                 }
-              }
 
-              hitMesh.visible = false;
+                hitMesh.visible = false;
+              }
             }
           }
         };
